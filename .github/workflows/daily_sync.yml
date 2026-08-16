@@ -2,22 +2,39 @@ name: 爱心事业云端自动抓取同步
 
 on:
   schedule:
-    - cron: '0 0 * * *' # 每天凌晨自动运行一次
-  workflow_dispatch:     # 支持手机/电脑点击按钮一键手动触发运行
+    - cron: '0 0 * * *'  # 每天北京时间早上 08:00 自动运行
+  workflow_dispatch:      # 支持手动触发
+
+# 赋予 GitHub Actions 自动写入和提交文件的权限
+permissions:
+  contents: write
 
 jobs:
-  run-crawler:
+  build-and-sync:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      - name: 设置 Python 环境
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 配置 Python 环境
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - name: 安装 Playwright 依赖
+
+      - name: 安装依赖包
         run: |
           python -m pip install --upgrade pip
-          pip install playwright requests
-          playwright install chromium
-      - name: 执行自动化脚本
-        run: python auto_crawler.py
+          pip install requests requests-html
+
+      - name: 运行抓取并追加写入账本
+        run: |
+          python auto_crawler.py
+
+      - name: 自动保存 data.json 到 GitHub 仓库
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action Bot"
+          git add data.json
+          git diff-index --quiet HEAD || git commit -m "🤖 自动升级系统账本明细 [$(date +'%Y-%m-%d')]"
+          git push
