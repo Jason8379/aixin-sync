@@ -19,5 +19,12 @@
     "commission": 1280.5,
     "team_members": 42,
     "team_sales": 15600.0
+  },
+  {
+    "date": "2026-08-19",
+    "timestamp": 1787101675,
+    "commission": 1280.5,
+    "team_members": 42,
+    "team_sales": 15600.0
   }
 ]
