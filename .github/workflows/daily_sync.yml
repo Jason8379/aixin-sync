@@ -3,17 +3,20 @@ name: 爱心事业云端自动抓取同步
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */2 * * *' # 每2小时自动同步
+    - cron: '0 */2 * * *'
+
+permissions:
+  contents: write
 
 jobs:
   build-and-sync:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: 设置 Python 环境
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
@@ -21,12 +24,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          playwright install chromium --with-deps  # 关键：自动安装 Playwright 无头浏览器
+          playwright install chromium --with-deps
 
       - name: 运行真实遍历爬虫抓取全量数据
         env:
           OLD_SYS_USER: ${{ secrets.OLD_SYS_USER }}
           OLD_SYS_PWD: ${{ secrets.OLD_SYS_PWD }}
+          OLD_SYS_URL: ${{ secrets.OLD_SYS_URL }}
         run: |
           python auto_crawler.py
 
@@ -35,5 +39,5 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add data.json
-          git commit -m "Auto-update full team data with infinite scroll" || exit 0
-          git push
+          git commit -m "Auto-update full team data" || exit 0
+          git push origin main
