@@ -16,12 +16,12 @@
   <!-- 头部信息 -->
   <header class="flex justify-between items-center mb-6 pt-2">
     <div>
-      <h1 class="text-2xl font-bold text-gray-800">❤️ 爱心事业管理系统 - 记账与业绩全量账本</h1>
-      <p class="text-xs text-gray-500 mt-1">永久存档旧系统【记账中心】与【业绩统计】所有明细</p>
+      <h1 class="text-2xl font-bold text-gray-800">❤️ 爱心事业管理系统 - 伙伴数据档案库</h1>
+      <p class="text-xs text-gray-500 mt-1">云端实时同步【记账中心】与【团队伙伴个人数据档案】</p>
     </div>
     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
       <span class="w-2 h-2 mr-1.5 bg-green-500 rounded-full animate-pulse"></span>
-      云端实时连通中
+      云端档案库连通中
     </span>
   </header>
 
@@ -36,76 +36,108 @@
     </button>
   </div>
 
-  <!-- 第一部分：记账中心 / 分销中心核心数据汇总 -->
-  <h2 class="text-base font-bold text-gray-700 mb-3"><i class="fa-solid fa-wallet text-amber-500 mr-2"></i>记账中心全量明细</h2>
+  <!-- 核心数据汇总 -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="card p-4 border-t-4 border-red-500">
       <div class="text-gray-500 text-xs font-medium">推广佣金总额</div>
       <div class="text-xl font-extrabold text-red-600 mt-1">¥ <span id="commission-total">0.00</span></div>
     </div>
-
     <div class="card p-4 border-t-4 border-emerald-500">
-      <div class="text-gray-500 text-xs font-medium">可提现佣金 (元)</div>
-      <div class="text-xl font-extrabold text-emerald-600 mt-1">¥ <span id="withdrawable-num">0.00</span></div>
+      <div class="text-gray-500 text-xs font-medium">可提现 / 已提现</div>
+      <div class="text-sm font-bold text-gray-700 mt-2">¥<span id="withdrawable-num">0</span> / ¥<span id="withdrawn-num">0</span></div>
     </div>
-
-    <div class="card p-4 border-t-4 border-blue-500">
-      <div class="text-gray-500 text-xs font-medium">已提现佣金 (元)</div>
-      <div class="text-xl font-extrabold text-blue-600 mt-1">¥ <span id="withdrawn-num">0.00</span></div>
-    </div>
-
-    <div class="card p-4 border-t-4 border-purple-500">
-      <div class="text-gray-500 text-xs font-medium">推广订单数 / 团队人数</div>
-      <div class="text-xl font-extrabold text-purple-600 mt-1"><span id="promo-orders">0</span> 笔 / <span id="team-members">0</span> 人</div>
-    </div>
-  </div>
-
-  <!-- 第二部分：业绩统计全量数据汇总 -->
-  <h2 class="text-base font-bold text-gray-700 mb-3"><i class="fa-solid fa-chart-line text-blue-500 mr-2"></i>业绩统计汇总数据</h2>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
     <div class="card p-4 border-t-4 border-orange-500">
-      <div class="text-gray-500 text-xs font-medium">业绩订单总金额</div>
-      <div class="text-2xl font-extrabold text-orange-600 mt-1">¥ <span id="team-sales">0.00</span></div>
+      <div class="text-gray-500 text-xs font-medium">团队业绩总额</div>
+      <div class="text-xl font-extrabold text-orange-600 mt-1">¥ <span id="team-sales">0.00</span></div>
     </div>
-
-    <div class="card p-4 border-t-4 border-indigo-500">
-      <div class="text-gray-500 text-xs font-medium">业绩订单数</div>
-      <div class="text-2xl font-extrabold text-indigo-600 mt-1"><span id="total-orders">0</span> 单</div>
-    </div>
-
-    <div class="card p-4 border-t-4 border-teal-500">
-      <div class="text-gray-500 text-xs font-medium">上架费总额</div>
-      <div class="text-2xl font-extrabold text-teal-600 mt-1">¥ <span id="shelf-fee">0.00</span></div>
+    <div class="card p-4 border-t-4 border-purple-500">
+      <div class="text-gray-500 text-xs font-medium">上架费总额 / 订单笔数</div>
+      <div class="text-sm font-bold text-purple-600 mt-2">¥<span id="shelf-fee">0.00</span> (<span id="total-orders">0</span>单)</div>
     </div>
   </div>
 
-  <!-- 第三部分：每日历史账本永久存档表格 -->
+  <!-- 💡 团队伙伴业绩汇总与档案穿透查询 -->
   <div class="card overflow-hidden mb-6">
     <div class="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-      <h3 class="font-bold text-gray-800 text-sm"><i class="fa-solid fa-database text-green-600 mr-2"></i>云端永久存档历史账本记录</h3>
-      <span class="text-xs text-gray-400">每天自动备份记录</span>
+      <div>
+        <h3 class="font-bold text-gray-800 text-sm"><i class="fa-solid fa-users text-indigo-600 mr-2"></i>团队伙伴独立档案与上架费收益统计</h3>
+        <p class="text-xs text-gray-400 mt-0.5">点击下方任意伙伴姓名，可直接调用并查看该伙伴的所有详细交易档案</p>
+      </div>
+      <input type="text" id="member-search" oninput="filterMembers()" placeholder="搜索伙伴姓名..." class="text-xs border px-3 py-1.5 rounded-lg focus:outline-none focus:border-indigo-500">
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-sm text-left text-gray-600">
         <thead class="text-xs text-gray-500 uppercase bg-gray-100">
           <tr>
-            <th class="px-4 py-3">记录日期</th>
-            <th class="px-4 py-3">推广佣金</th>
-            <th class="px-4 py-3">可提现/已提现</th>
-            <th class="px-4 py-3">业绩总金额</th>
-            <th class="px-4 py-3">订单数量</th>
-            <th class="px-4 py-3">上架费</th>
-            <th class="px-4 py-3">存档状态</th>
+            <th class="px-4 py-3">伙伴姓名 (卖家)</th>
+            <th class="px-4 py-3">成交订单数</th>
+            <th class="px-4 py-3">累计销售额</th>
+            <th class="px-4 py-3">累计收益</th>
+            <th class="px-4 py-3">累计上架费</th>
+            <th class="px-4 py-3 text-center">操作</th>
           </tr>
         </thead>
-        <tbody id="history-table-body">
-          <!-- 动态加载列表 -->
+        <tbody id="member-table-body">
+          <!-- 动态加载伙伴列表 -->
         </tbody>
       </table>
     </div>
   </div>
 
+  <!-- 📂 伙伴个人独立档案弹窗/抽屉 -->
+  <div id="member-modal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl max-w-2xl w-full p-6 relative max-h-[85vh] overflow-y-auto">
+      <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+      
+      <div class="flex items-center space-x-3 mb-4 pb-3 border-b">
+        <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-lg" id="modal-avatar">珍</div>
+        <div>
+          <h3 class="font-bold text-lg text-gray-800" id="modal-name">伙伴个人档案</h3>
+          <p class="text-xs text-gray-500">爱心事业团队成员专属业绩归档</p>
+        </div>
+      </div>
+
+      <!-- 个人统计指标 -->
+      <div class="grid grid-cols-3 gap-3 mb-4 text-center">
+        <div class="bg-gray-50 p-2 rounded-lg">
+          <div class="text-xs text-gray-400">总成交额</div>
+          <div class="text-sm font-bold text-gray-800 mt-0.5">¥<span id="modal-sales">0</span></div>
+        </div>
+        <div class="bg-green-50 p-2 rounded-lg">
+          <div class="text-xs text-green-600">个人总收益</div>
+          <div class="text-sm font-bold text-green-700 mt-0.5">¥<span id="modal-profit">0</span></div>
+        </div>
+        <div class="bg-purple-50 p-2 rounded-lg">
+          <div class="text-xs text-purple-600">产生总上架费</div>
+          <div class="text-sm font-bold text-purple-700 mt-0.5">¥<span id="modal-shelffee">0</span></div>
+        </div>
+      </div>
+
+      <!-- 个人订单明细 -->
+      <h4 class="font-bold text-xs text-gray-700 mb-2"><i class="fa-solid fa-list-check mr-1"></i>名下订单与收益明细</h4>
+      <div class="border rounded-lg overflow-hidden">
+        <table class="w-full text-xs text-left text-gray-600">
+          <thead class="bg-gray-50 text-gray-500">
+            <tr>
+              <th class="p-2">订单号</th>
+              <th class="p-2">商品名称</th>
+              <th class="p-2">价格</th>
+              <th class="p-2">收益</th>
+              <th class="p-2">上架费</th>
+              <th class="p-2">时间</th>
+            </tr>
+          </thead>
+          <tbody id="modal-orders-body">
+            <!-- 动态填充 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <script>
+    let globalMembersData = [];
+
     async function fetchLatestData() {
       try {
         const response = await fetch('./data.json?t=' + new Date().getTime());
@@ -115,46 +147,87 @@
         if (records && records.length > 0) {
           const latest = records[records.length - 1];
 
-          // 填充个人信息与记账中心数据
-          if (latest.user_info) {
-            document.getElementById('invite-code').innerText = latest.user_info.invite_code || 'I2FNPL';
-            document.getElementById('referrer-name').innerText = latest.user_info.referrer || '花长洪';
-          }
-          document.getElementById('commission-total').innerText = (latest.commission || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2});
-          document.getElementById('withdrawable-num').innerText = (latest.withdrawable || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2});
-          document.getElementById('withdrawn-num').innerText = (latest.withdrawn || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2});
-          document.getElementById('promo-orders').innerText = latest.promo_orders_count || 0;
-          document.getElementById('team-members').innerText = latest.team_members || 0;
-
-          // 填充业绩统计数据
-          document.getElementById('team-sales').innerText = (latest.team_sales || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2});
+          document.getElementById('commission-total').innerText = (latest.commission || 0).toFixed(2);
+          document.getElementById('withdrawable-num').innerText = latest.withdrawable || 0;
+          document.getElementById('withdrawn-num').innerText = latest.withdrawn || 0;
+          document.getElementById('team-sales').innerText = (latest.team_sales || 0).toFixed(2);
           document.getElementById('total-orders').innerText = latest.total_orders_count || 0;
-          document.getElementById('shelf-fee').innerText = (latest.shelf_fee_total || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2});
+          document.getElementById('shelf-fee').innerText = (latest.shelf_fee_total || 0).toFixed(2);
+          document.getElementById('last-sync-time').innerText = latest.date + ' (最新状态)';
 
-          document.getElementById('last-sync-time').innerText = latest.date + ' (已成功与 GitHub 云端同步)';
-
-          // 渲染历史记录表
-          const tbody = document.getElementById('history-table-body');
-          tbody.innerHTML = '';
-          
-          [...records].reverse().forEach(item => {
-            const tr = document.createElement('tr');
-            tr.className = 'border-b hover:bg-gray-50';
-            tr.innerHTML = `
-              <td class="px-4 py-3 font-medium text-gray-900">${item.date}</td>
-              <td class="px-4 py-3 text-red-600 font-semibold">¥ ${(item.commission || 0).toFixed(2)}</td>
-              <td class="px-4 py-3 text-xs">可提:¥${item.withdrawable || 0} / 已提:¥${item.withdrawn || 0}</td>
-              <td class="px-4 py-3 font-semibold text-orange-600">¥ ${(item.team_sales || 0).toFixed(2)}</td>
-              <td class="px-4 py-3">${item.total_orders_count || 0} 单</td>
-              <td class="px-4 py-3 text-teal-600">¥ ${(item.shelf_fee_total || 0).toFixed(2)}</td>
-              <td class="px-4 py-3"><span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">云端永久存档</span></td>
-            `;
-            tbody.appendChild(tr);
-          });
+          globalMembersData = latest.members_detail || [];
+          renderMembersTable(globalMembersData);
         }
       } catch (error) {
-        console.warn('获取失败:', error);
+        console.warn('获取数据失败:', error);
       }
+    }
+
+    function renderMembersTable(members) {
+      const tbody = document.getElementById('member-table-body');
+      tbody.innerHTML = '';
+
+      if (members.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-400 text-xs">暂无伙伴档案数据</td></tr>';
+        return;
+      }
+
+      members.forEach(m => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b hover:bg-indigo-50/30 transition-colors';
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-bold text-gray-800">${m.name}</td>
+          <td class="px-4 py-3">${m.orders_count} 单</td>
+          <td class="px-4 py-3 font-medium">¥ ${m.total_sales.toFixed(2)}</td>
+          <td class="px-4 py-3 text-emerald-600 font-semibold">¥ ${m.total_profit.toFixed(2)}</td>
+          <td class="px-4 py-3 text-purple-600 font-semibold">¥ ${m.total_shelf_fee.toFixed(2)}</td>
+          <td class="px-4 py-3 text-center">
+            <button onclick="openModal('${m.name}')" class="bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white px-2.5 py-1 rounded text-xs transition-colors">
+              <i class="fa-regular fa-folder-open mr-1"></i>调取档案
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterMembers() {
+      const keyword = document.getElementById('member-search').value.trim().toLowerCase();
+      const filtered = globalMembersData.filter(m => m.name.toLowerCase().includes(keyword));
+      renderMembersTable(filtered);
+    }
+
+    function openModal(memberName) {
+      const member = globalMembersData.find(m => m.name === memberName);
+      if (!member) return;
+
+      document.getElementById('modal-avatar').innerText = member.name.charAt(0);
+      document.getElementById('modal-name').innerText = member.name + " 的个人档案";
+      document.getElementById('modal-sales').innerText = member.total_sales.toFixed(2);
+      document.getElementById('modal-profit').innerText = member.total_profit.toFixed(2);
+      document.getElementById('modal-shelffee').innerText = member.total_shelf_fee.toFixed(2);
+
+      const tbody = document.getElementById('modal-orders-body');
+      tbody.innerHTML = '';
+      (member.orders || []).forEach(o => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b';
+        tr.innerHTML = `
+          <td class="p-2 font-mono text-gray-500">${o.id}</td>
+          <td class="p-2 font-medium text-gray-700">${o.item}</td>
+          <td class="p-2">¥${o.price}</td>
+          <td class="p-2 text-green-600 font-medium">¥${o.profit}</td>
+          <td class="p-2 text-purple-600 font-medium">¥${o.shelf_fee}</td>
+          <td class="p-2 text-gray-400">${o.time}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('member-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('member-modal').classList.add('hidden');
     }
 
     window.onload = fetchLatestData;
