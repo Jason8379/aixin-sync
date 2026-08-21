@@ -36,9 +36,19 @@
   },
   {
     "date": "2026-08-21",
-    "timestamp": 1787274660,
-    "commission": 1280.5,
-    "team_members": 42,
-    "team_sales": 15600.0
+    "timestamp": 1787319534,
+    "user_info": {
+      "name": "杰克(jk1588)",
+      "invite_code": "I2FNPL",
+      "referrer": "花长洪"
+    },
+    "commission": 1749.0,
+    "withdrawable": 323.0,
+    "withdrawn": 1426.0,
+    "promo_orders_count": 6,
+    "team_sales": 96559.0,
+    "total_orders_count": 29,
+    "shelf_fee_total": 2414.0,
+    "team_members": 42
   }
 ]
