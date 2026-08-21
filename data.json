@@ -1,7 +1,7 @@
 [
   {
     "date": "2026-08-21",
-    "timestamp": 1787324836,
+    "timestamp": 1787325756,
     "user_info": {
       "name": "杰克(jk1588)",
       "invite_code": "I2FNPL",
@@ -15,6 +15,70 @@
     "total_orders_count": 29,
     "shelf_fee_total": 2414.0,
     "team_members": 42,
-    "members_detail": []
+    "members_detail": [
+      {
+        "name": "珍阿姨",
+        "orders": 1,
+        "sales": 2000.0,
+        "income": 30.0,
+        "shelf_fee": 50.0
+      },
+      {
+        "name": "紫气东来",
+        "orders": 1,
+        "sales": 2000.0,
+        "income": 30.0,
+        "shelf_fee": 50.0
+      },
+      {
+        "name": "金仙",
+        "orders": 1,
+        "sales": 2125.0,
+        "income": 32.0,
+        "shelf_fee": 53.0
+      },
+      {
+        "name": "王玥帷",
+        "orders": 1,
+        "sales": 1370.0,
+        "income": 21.0,
+        "shelf_fee": 34.0
+      },
+      {
+        "name": "周叶新",
+        "orders": 1,
+        "sales": 1125.0,
+        "income": 17.0,
+        "shelf_fee": 28.0
+      },
+      {
+        "name": "张爱华",
+        "orders": 1,
+        "sales": 1370.0,
+        "income": 21.0,
+        "shelf_fee": 34.0
+      },
+      {
+        "name": "常留琴",
+        "orders": 1,
+        "sales": 1370.0,
+        "income": 21.0,
+        "shelf_fee": 34.0
+      },
+      {
+        "name": "天佑",
+        "orders": 1,
+        "sales": 1125.0,
+        "income": 17.0,
+        "shelf_fee": 28.0
+      },
+      {
+        "name": "柴红花",
+        "orders": 1,
+        "sales": 1370.0,
+        "income": 21.0,
+        "shelf_fee": 34.0
+      }
+    ]
   }
 ]
