@@ -3,131 +3,160 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>爱心事业管理系统 - 自动化控制台</title>
+  <title>爱心事业全量数据控制台</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
     body { background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     .card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
-    .badge-success { background-color: #def7ec; color: #03543f; }
   </style>
 </head>
-<body class="p-4 max-w-4xl mx-auto pb-12">
+<body class="p-4 max-w-6xl mx-auto pb-12">
 
+  <!-- 头部信息 -->
   <header class="flex justify-between items-center mb-6 pt-2">
     <div>
-      <h1 class="text-2xl font-bold text-gray-800">❤️ 爱心事业管理面板</h1>
-      <p class="text-xs text-gray-500 mt-1">云端数据实时同步后台</p>
+      <h1 class="text-2xl font-bold text-gray-800">❤️ 爱心事业管理系统 - 记账与业绩全量账本</h1>
+      <p class="text-xs text-gray-500 mt-1">永久存档旧系统【记账中心】与【业绩统计】所有明细</p>
     </div>
-    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium badge-success">
+    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
       <span class="w-2 h-2 mr-1.5 bg-green-500 rounded-full animate-pulse"></span>
-      云端自动化连通中
+      云端实时连通中
     </span>
   </header>
 
+  <!-- 状态提示 -->
   <div class="card p-4 mb-6 border-l-4 border-indigo-500 flex justify-between items-center bg-indigo-50/50">
     <div>
-      <div class="text-sm font-semibold text-indigo-900">🔄 最近一次自动同步：<span id="last-sync-time">正在从 GitHub 获取...</span></div>
-      <div class="text-xs text-indigo-600 mt-0.5">已自动通过防火墙校验并刷新获取最新业绩数据</div>
+      <div class="text-sm font-semibold text-indigo-900">🔄 最近同步时间：<span id="last-sync-time">正在读取云端...</span></div>
+      <div class="text-xs text-indigo-600 mt-0.5">账号：杰克 (jk1588) | 邀请码：<span id="invite-code">I2FNPL</span> | 推荐人：<span id="referrer-name">花长洪</span></div>
     </div>
-    <button onclick="triggerManualSync()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-2 rounded-lg font-medium shadow-sm transition">
-      <i class="fa-solid fa-arrows-rotate mr-1"></i> 刷新读取最新数据
+    <button onclick="fetchLatestData()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-2 rounded-lg font-medium shadow-sm">
+      <i class="fa-solid fa-arrows-rotate mr-1"></i> 刷新数据
     </button>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <div class="card p-5 border-t-4 border-red-500">
-      <div class="text-gray-500 text-xs font-medium">💰 个人每日累计佣金</div>
-      <div class="text-2xl font-extrabold text-red-600 mt-2">¥ <span id="commission-num">加载中...</span></div>
-      <div class="text-xs text-green-600 mt-2 font-medium" id="growth-text">↑ 自动从云端账本 (data.json) 获取</div>
+  <!-- 第一部分：记账中心 / 分销中心核心数据汇总 -->
+  <h2 class="text-base font-bold text-gray-700 mb-3"><i class="fa-solid fa-wallet text-amber-500 mr-2"></i>记账中心全量明细</h2>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="card p-4 border-t-4 border-red-500">
+      <div class="text-gray-500 text-xs font-medium">推广佣金总额</div>
+      <div class="text-xl font-extrabold text-red-600 mt-1">¥ <span id="commission-total">0.00</span></div>
     </div>
 
-    <div class="card p-5 border-t-4 border-blue-500">
-      <div class="text-gray-500 text-xs font-medium">👤 我的推荐人</div>
-      <div class="text-lg font-bold text-gray-800 mt-2" id="referrer-name">官方推荐官 (ID: 8899)</div>
-      <div class="text-xs text-gray-400 mt-2">系统绑定正常</div>
+    <div class="card p-4 border-t-4 border-emerald-500">
+      <div class="text-gray-500 text-xs font-medium">可提现佣金 (元)</div>
+      <div class="text-xl font-extrabold text-emerald-600 mt-1">¥ <span id="withdrawable-num">0.00</span></div>
     </div>
 
-    <div class="card p-5 border-t-4 border-amber-500">
-      <div class="text-gray-500 text-xs font-medium">🔑 我的专属邀请码</div>
-      <div class="text-xl font-mono font-bold text-amber-600 mt-2" id="invite-code">LOVE-8888-9999</div>
-      <div class="text-xs text-gray-400 mt-2">点击可自动复制</div>
+    <div class="card p-4 border-t-4 border-blue-500">
+      <div class="text-gray-500 text-xs font-medium">已提现佣金 (元)</div>
+      <div class="text-xl font-extrabold text-blue-600 mt-1">¥ <span id="withdrawn-num">0.00</span></div>
+    </div>
+
+    <div class="card p-4 border-t-4 border-purple-500">
+      <div class="text-gray-500 text-xs font-medium">推广订单数 / 团队人数</div>
+      <div class="text-xl font-extrabold text-purple-600 mt-1"><span id="promo-orders">0</span> 笔 / <span id="team-members">0</span> 人</div>
     </div>
   </div>
 
+  <!-- 第二部分：业绩统计全量数据汇总 -->
+  <h2 class="text-base font-bold text-gray-700 mb-3"><i class="fa-solid fa-chart-line text-blue-500 mr-2"></i>业绩统计汇总数据</h2>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="card p-4 border-t-4 border-orange-500">
+      <div class="text-gray-500 text-xs font-medium">业绩订单总金额</div>
+      <div class="text-2xl font-extrabold text-orange-600 mt-1">¥ <span id="team-sales">0.00</span></div>
+    </div>
+
+    <div class="card p-4 border-t-4 border-indigo-500">
+      <div class="text-gray-500 text-xs font-medium">业绩订单数</div>
+      <div class="text-2xl font-extrabold text-indigo-600 mt-1"><span id="total-orders">0</span> 单</div>
+    </div>
+
+    <div class="card p-4 border-t-4 border-teal-500">
+      <div class="text-gray-500 text-xs font-medium">上架费总额</div>
+      <div class="text-2xl font-extrabold text-teal-600 mt-1">¥ <span id="shelf-fee">0.00</span></div>
+    </div>
+  </div>
+
+  <!-- 第三部分：每日历史账本永久存档表格 -->
   <div class="card overflow-hidden mb-6">
-    <div class="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
-      <h3 class="font-bold text-gray-800 text-base">📊 团队伙伴业绩统计列表</h3>
-      <span class="text-xs text-gray-400">自动实时汇总记录</span>
+    <div class="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+      <h3 class="font-bold text-gray-800 text-sm"><i class="fa-solid fa-database text-green-600 mr-2"></i>云端永久存档历史账本记录</h3>
+      <span class="text-xs text-gray-400">每天自动备份记录</span>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-sm text-left text-gray-600">
-        <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b">
+        <thead class="text-xs text-gray-500 uppercase bg-gray-100">
           <tr>
-            <th class="px-5 py-3">记录日期</th>
-            <th class="px-5 py-3">团队总人数</th>
-            <th class="px-5 py-3">当日佣金</th>
-            <th class="px-5 py-3">团队累计总业绩</th>
-            <th class="px-5 py-3">同步状态</th>
+            <th class="px-4 py-3">记录日期</th>
+            <th class="px-4 py-3">推广佣金</th>
+            <th class="px-4 py-3">可提现/已提现</th>
+            <th class="px-4 py-3">业绩总金额</th>
+            <th class="px-4 py-3">订单数量</th>
+            <th class="px-4 py-3">上架费</th>
+            <th class="px-4 py-3">存档状态</th>
           </tr>
         </thead>
-        <tbody id="team-performance-list">
-          </tbody>
+        <tbody id="history-table-body">
+          <!-- 动态加载列表 -->
+        </tbody>
       </table>
     </div>
   </div>
 
   <script>
-    // 页面加载完成后自动请求 GitHub 上的 data.json
     async function fetchLatestData() {
       try {
-        // 添加时间戳防止浏览器缓存，确保获取的是最新 JSON 数据
         const response = await fetch('./data.json?t=' + new Date().getTime());
-        if (!response.ok) {
-          throw new Error('未找到 data.json 或尚未生成');
-        }
+        if (!response.ok) throw new Error('未读取到 data.json');
         
         const records = await response.json();
-        
         if (records && records.length > 0) {
-          // 获取最新的那一条记录（最后一条）
           const latest = records[records.length - 1];
-          
-          // 更新页面上的各项数据
-          document.getElementById('commission-num').innerText = latest.commission ? latest.commission.toLocaleString('zh-CN', {minimumFractionDigits: 2}) : '0.00';
+
+          // 填充个人信息与记账中心数据
+          if (latest.user_info) {
+            document.getElementById('invite-code').innerText = latest.user_info.invite_code || 'I2FNPL';
+            document.getElementById('referrer-name').innerText = latest.user_info.referrer || '花长洪';
+          }
+          document.getElementById('commission-total').innerText = (latest.commission || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2});
+          document.getElementById('withdrawable-num').innerText = (latest.withdrawable || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2});
+          document.getElementById('withdrawn-num').innerText = (latest.withdrawn || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2});
+          document.getElementById('promo-orders').innerText = latest.promo_orders_count || 0;
+          document.getElementById('team-members').innerText = latest.team_members || 0;
+
+          // 填充业绩统计数据
+          document.getElementById('team-sales').innerText = (latest.team_sales || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2});
+          document.getElementById('total-orders').innerText = latest.total_orders_count || 0;
+          document.getElementById('shelf-fee').innerText = (latest.shelf_fee_total || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2});
+
           document.getElementById('last-sync-time').innerText = latest.date + ' (已成功与 GitHub 云端同步)';
-          
-          // 渲染团队列表（按日期倒序排列展现历史流水账）
-          const tbody = document.getElementById('team-performance-list');
+
+          // 渲染历史记录表
+          const tbody = document.getElementById('history-table-body');
           tbody.innerHTML = '';
           
-          // 倒序展示最近的记录
           [...records].reverse().forEach(item => {
             const tr = document.createElement('tr');
             tr.className = 'border-b hover:bg-gray-50';
             tr.innerHTML = `
-              <td class="px-5 py-3.5 font-medium text-gray-900">${item.date || '-'}</td>
-              <td class="px-5 py-3.5">${item.team_members || 0} 人</td>
-              <td class="px-5 py-3.5 text-red-500 font-semibold">¥ ${(item.commission || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2})}</td>
-              <td class="px-5 py-3.5 font-semibold">¥ ${(item.team_sales || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2})}</td>
-              <td class="px-5 py-3.5"><span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">云端永久存档</span></td>
+              <td class="px-4 py-3 font-medium text-gray-900">${item.date}</td>
+              <td class="px-4 py-3 text-red-600 font-semibold">¥ ${(item.commission || 0).toFixed(2)}</td>
+              <td class="px-4 py-3 text-xs">可提:¥${item.withdrawable || 0} / 已提:¥${item.withdrawn || 0}</td>
+              <td class="px-4 py-3 font-semibold text-orange-600">¥ ${(item.team_sales || 0).toFixed(2)}</td>
+              <td class="px-4 py-3">${item.total_orders_count || 0} 单</td>
+              <td class="px-4 py-3 text-teal-600">¥ ${(item.shelf_fee_total || 0).toFixed(2)}</td>
+              <td class="px-4 py-3"><span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">云端永久存档</span></td>
             `;
             tbody.appendChild(tr);
           });
         }
       } catch (error) {
-        console.warn('读取云端账本提示:', error);
-        document.getElementById('last-sync-time').innerText = '数据准备中 (初次运行请先点击 Actions 触发执行)';
-        document.getElementById('commission-num').innerText = '12,850.00'; // 默认降级数值
+        console.warn('获取失败:', error);
       }
     }
 
-    function triggerManualSync() {
-      fetchLatestData();
-      alert("🔄 已重新拉取 GitHub 仓库里的最新 data.json 数据！");
-    }
-
-    // 初始化自动读取
     window.onload = fetchLatestData;
   </script>
 </body>
