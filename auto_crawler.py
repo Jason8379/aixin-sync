@@ -15,7 +15,6 @@ def scrape_all_data():
         login_url = "https://185.180.19.221/h5/"
 
     with sync_playwright() as p:
-        # 使用真实的 Chrome 浏览器特征防封禁
         browser = p.chromium.launch(
             headless=True,
             args=[
@@ -31,8 +30,6 @@ def scrape_all_data():
             ignore_https_errors=True
         )
         page = context.new_page()
-
-        # 注入防脚本检测 JS
         page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
         print(f"🔗 正在访问目标页面: {login_url}")
@@ -40,64 +37,70 @@ def scrape_all_data():
         page.wait_for_timeout(3000)
 
         # ----------------------------------------------------
-        # 步骤 1：突破 SafeLine WAF 人机验证 (Confirm You Are Human / 9999 / 8888)
+        # 步骤 1：穿透 SafeLine 防火墙 (9999 / 8888)
         # ----------------------------------------------------
-        print("🛡️ 正在进行 SafeLine 防火墙穿透...")
+        print("🛡️ 开始执行 SafeLine 防火墙穿透...")
         
-        # 自动尝试点击 SafeLine 的“Confirm / 点击验证”按钮
         try:
-            confirm_btn = page.locator("text=Confirm, text=点击验证, button, input[type='button']").first
-            if confirm_btn.is_visible(timeout=3000):
-                confirm_btn.click()
-                print("👆 已自动点击 SafeLine 人机确认按钮！")
-                page.wait_for_timeout(3000)
-        except Exception:
-            pass
-
-        # 填入 9999 / 8888 穿透防火墙
-        try:
+            # 获取页面所有的输入框
             inputs = page.locator("input").all()
             if len(inputs) >= 2:
                 inputs[0].fill("9999")
                 inputs[1].fill("8888")
-                # 点击登录提交
-                submit_btn = page.locator("button, input[type='submit'], text=登录, text=确定").first
-                submit_btn.click()
-                print("✅ 成功提交防火墙凭证 (9999 / 8888)！")
-                page.wait_for_timeout(4000)
+                page.keyboard.press("Enter")
+                print("✅ 已输入 9999 / 8888 并按下 Enter 回车提交！")
+            else:
+                # 如果找不到 input 节点，使用键盘 Tab 键快速导航填充
+                page.keyboard.press("Tab")
+                page.keyboard.type("9999")
+                page.keyboard.press("Tab")
+                page.keyboard.type("8888")
+                page.keyboard.press("Enter")
+                print("⌨️ 已通过键盘模拟 Tab/Enter 提交防火墙凭证！")
+            
+            page.wait_for_timeout(4000)
         except Exception as e:
-            print(f"ℹ️ 防火墙表单处理完成: {e}")
+            print(f"ℹ️ 防火墙步骤处理提示: {e}")
 
         # ----------------------------------------------------
         # 步骤 2：登录旧系统 (jk1588 / jk1588)
         # ----------------------------------------------------
         print("🔑 正在自动填写旧系统账号密码...")
         try:
-            page.fill("input[type='text'], input[placeholder*='账号'], input[placeholder*='手机']", user, timeout=5000)
-            page.fill("input[type='password'], input[placeholder*='密码']", pwd, timeout=5000)
-            page.click("button, input[type='submit'], .login-btn, text=登录", timeout=5000)
+            # 兼容修正后的 Selector 选择器
+            inputs = page.locator("input").all()
+            if len(inputs) >= 2:
+                inputs[0].fill(user)
+                inputs[1].fill(pwd)
+                page.keyboard.press("Enter")
+                print("✅ 已提交旧系统账号密码 (jk1588/jk1588)！")
+            else:
+                page.type("input[type='text']", user)
+                page.type("input[type='password']", pwd)
+                page.keyboard.press("Enter")
+            
             page.wait_for_timeout(4000)
-            print("✅ 成功进入旧系统主页！")
         except Exception as e:
-            print(f"⚠️ 登录尝试: {e}")
+            print(f"⚠️ 旧系统登录动作提示: {e}")
 
         # ----------------------------------------------------
-        # 步骤 3：加载全量卡片
+        # 步骤 3：跳转业绩页与加载全量卡片
         # ----------------------------------------------------
         try:
-            page.click("text=业绩", timeout=3000)
+            page.get_by_text("业绩").click(timeout=3000)
             page.wait_for_timeout(2000)
         except:
             pass
 
-        print("⏬ 正在向下滚动加载卡片数据...")
+        print("⏬ 向下拉取全量卡片...")
         for _ in range(15):
             page.mouse.wheel(0, 1500)
             page.wait_for_timeout(1000)
 
+        # 打印系统登录后的真实页面内容
         page_text = page.evaluate("() => document.body.innerText")
-        print("===【系统穿透后获取的真实页面文本】===")
-        print(page_text[:2000])
+        print("\n===【系统穿透后获取的真实页面文本】===")
+        print(page_text[:3000])
         print("==========================================")
 
         browser.close()
