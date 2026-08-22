@@ -1,7 +1,6 @@
 import os
 import json
 import time
-import re
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 
@@ -21,7 +20,7 @@ def scrape_all_data():
         )
         page = context.new_page()
 
-        # 1. 访问并穿透防火墙
+        # 1. 访问并过防火墙
         print(f"🔗 正在访问页面: {login_url}")
         page.goto(login_url, wait_until="domcontentloaded")
         page.wait_for_timeout(2000)
@@ -30,12 +29,12 @@ def scrape_all_data():
             page.fill("input[type='text'], input[placeholder*='账号'], input[placeholder*='用户']", "9999", timeout=3000)
             page.fill("input[type='password'], input[placeholder*='密码']", "8888", timeout=3000)
             page.click("button, input[type='submit'], text=登录, text=确定", timeout=3000)
-            print("✅ 成功通过防火墙 (9999/8888)！")
+            print("✅ 成功通过防火墙验证！")
             page.wait_for_timeout(3000)
         except Exception as e:
             print(f"ℹ️ 未检测到防火墙拦截: {e}")
 
-        # 2. 自动登录旧系统账号
+        # 2. 自动登录旧系统
         print("🔑 自动登录旧系统账号...")
         try:
             page.fill("input[type='text'], input[placeholder*='账号'], input[placeholder*='手机']", user, timeout=5000)
@@ -46,63 +45,36 @@ def scrape_all_data():
         except Exception as e:
             print(f"⚠️ 登录流程提示: {e}")
 
-        # 3. 进入业绩/团队列表页
+        # 3. 尝试点击“业绩”或“团队”
         try:
             page.click("text=业绩", timeout=3000)
             page.wait_for_timeout(2000)
         except:
             pass
 
-        # 4. 循环向下滚动加载所有卡片
-        print("⏬ 开始循环滚动加载全量数据...")
-        last_height = 0
-        scroll_count = 0
-        
-        while scroll_count < 30:
+        # 4. 滚动页面
+        print("⏬ 正在向下拉取全量卡片...")
+        for _ in range(15):
             page.mouse.wheel(0, 1500)
-            page.wait_for_timeout(1500)
+            page.wait_for_timeout(1000)
 
-            new_height = page.evaluate("document.body.scrollHeight")
-            if new_height == last_height:
-                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                page.wait_for_timeout(2000)
-                if page.evaluate("document.body.scrollHeight") == last_height:
-                    print("✅ 页面触底，全量卡片加载完毕！")
-                    break
-            last_height = new_height
-            scroll_count += 1
+        # 5. 抓取整个页面的 text 内容并打印前 2000 个字符
+        page_text = page.evaluate("() => document.body.innerText")
+        print("===【旧系统登录后抓取到的页面真实文本内容】===")
+        print(page_text[:2000])
+        print("==================================================")
 
-        # 5. 抓取页面整体文本，准备解析人员
-        full_text = page.evaluate("() => document.body.innerText")
         browser.close()
-        return full_text
-
-def parse_members_from_text(raw_text):
-    """从抓取到的 DOM 文本中智能解析人名、订单数与金额"""
-    members = []
-    # 按换行切分数据行
-    lines = [line.strip() for line in raw_text.split("\n") if line.strip()]
-    
-    # 示例规则提取：寻找包含金额￥的文本块
-    for i, line in enumerate(lines):
-        # 如果包含类似金额或名字的特征，匹配提取
-        if "￥" in line or "单" in line:
-            # 此处做简单的字符串清洗与归类
-            pass
-            
-    return members
+        return page_text
 
 def run_real_crawler():
     today_str = datetime.now().strftime("%Y-%m-%d")
-    
-    try:
-        raw_text = scrape_all_data()
-        print("🎉 网页元素抓取成功！正在解析人员名单...")
-    except Exception as e:
-        print(f"❌ 运行异常: {e}")
-        raw_text = ""
+    raw_text = scrape_all_data()
 
-    # 如果正则解析尚无特定规则，写入基础数据结构，确保前端能展示表格数据
+    # 尝试解析所有包含人名与金额的数据片段
+    members = []
+    
+    # 将提取到的原始数据写入临时文件供调试，或写入 data.json
     updated_data = [{
         "date": today_str,
         "timestamp": int(time.time()),
@@ -119,23 +91,11 @@ def run_real_crawler():
         "total_orders_count": 29,
         "shelf_fee_total": 2414.00,
         "team_members": 42,
-        # 补全默认演示数据或抓取到的成员，防止前端显示“暂无伙伴”
-        "members_detail": [
-            {"name": "珍阿姨", "orders": 1, "sales": 2000.00, "income": 30.00, "shelf_fee": 50.00},
-            {"name": "紫气东来", "orders": 1, "sales": 2000.00, "income": 30.00, "shelf_fee": 50.00},
-            {"name": "金仙", "orders": 1, "sales": 2125.00, "income": 32.00, "shelf_fee": 53.00},
-            {"name": "王玥帷", "orders": 1, "sales": 1370.00, "income": 21.00, "shelf_fee": 34.00},
-            {"name": "周叶新", "orders": 1, "sales": 1125.00, "income": 17.00, "shelf_fee": 28.00},
-            {"name": "张爱华", "orders": 1, "sales": 1370.00, "income": 21.00, "shelf_fee": 34.00},
-            {"name": "常留琴", "orders": 1, "sales": 1370.00, "income": 21.00, "shelf_fee": 34.00},
-            {"name": "天佑", "orders": 1, "sales": 1125.00, "income": 17.00, "shelf_fee": 28.00},
-            {"name": "柴红花", "orders": 1, "sales": 1370.00, "income": 21.00, "shelf_fee": 34.00}
-        ]
+        "members_detail": members
     }]
 
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(updated_data, f, ensure_ascii=False, indent=2)
-    print("💾 已更新写入 data.json！")
 
 if __name__ == "__main__":
     run_real_crawler()
