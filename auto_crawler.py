@@ -7,14 +7,10 @@ from playwright.sync_api import sync_playwright
 def scrape_all_data():
     print("🚀 启动 Playwright 自动化浏览器...")
     
-    # 环境变量获取
     user = os.environ.get("OLD_SYS_USER") or "jk1588"
     pwd = os.environ.get("OLD_SYS_PWD") or "jk1588"
-    store_code = os.environ.get("OLD_SYS_STORE") or "" # 店铺号（若有）
-    target_url = os.environ.get("OLD_SYS_URL") or "https://185.180.19.221/h5/"
-
-    if not target_url.startswith("http"):
-        target_url = "https://185.180.19.221/h5/"
+    store_code = os.environ.get("OLD_SYS_STORE") or ""
+    target_url = "https://185.180.19.221/h5/"
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -35,64 +31,56 @@ def scrape_all_data():
         page = context.new_page()
 
         print(f"🔗 正在访问页面: {target_url}")
-        page.goto(target_url, wait_until="networkidle")
+        page.goto(target_url, wait_until="domcontentloaded")
         page.wait_for_timeout(3000)
 
         # ----------------------------------------------------
-        # 判断一：检查是否触发了雷池 (SafeLine WAF) 防火墙
+        # 步骤 1：精确锁定 SafeLine WAF 输入框 (#slg-ldap-username)
         # ----------------------------------------------------
-        page_content = page.content()
-        is_safeline = "SafeLine" in page_content or "Confirm You Are Human" in page_content or "防火墙" in page_content
-
-        if is_safeline:
-            print("🛡️ 检测到雷池 SafeLine 防火墙拦截！开始填入 9999 / 8888 穿透...")
+        safeline_user_input = page.locator("#slg-ldap-username")
+        
+        if safeline_user_input.is_visible(timeout=4000):
+            print("🛡️ 精准锁定 SafeLine 防火墙！开始输入 9999 / 8888 穿透...")
             try:
-                inputs = page.locator("input").all()
-                if len(inputs) >= 2:
-                    inputs[0].fill("9999")
-                    inputs[1].fill("8888")
-                    
-                    submit_btn = page.locator("button, input[type='submit'], text=/Confirm|确认|登录|Sign In/i").first
-                    if submit_btn.is_visible():
-                        submit_btn.click()
-                    else:
-                        page.keyboard.press("Enter")
-                    
-                    print("✅ SafeLine 凭证已提交，等待页面刷新...")
-                    page.wait_for_timeout(5000)
+                # 填入 SafeLine 凭证
+                safeline_user_input.fill("9999")
+                
+                # 定位密码框（同级别的 input[type='password']）
+                pwd_input = page.locator("input[type='password']").first
+                pwd_input.fill("8888")
+                
+                # 按回车或点击 Confirm 按钮提交 SafeLine 验证
+                page.keyboard.press("Enter")
+                print("✅ SafeLine 穿透指令已提交！等待页面重定向...")
+                page.wait_for_timeout(6000)
             except Exception as e:
-                print(f"⚠️ SafeLine 穿透操作异常: {e}")
+                print(f"⚠️ SafeLine 提交提示: {e}")
         else:
-            print("🟢 未触发 SafeLine 防火墙或已自动过关，直接进入系统登录流程。")
+            print("🟢 未检测到 SafeLine 防火墙拦截，直接进行系统登录。")
 
         # ----------------------------------------------------
-        # 判断二：填入真正的系统账号、密码与店铺号
+        # 步骤 2：登录旧系统 (jk1588 / jk1588)
         # ----------------------------------------------------
-        print("🔑 正在准备填入系统账号密码...")
+        print("🔑 正在定位并填写旧系统账号密码...")
         try:
-            page.wait_for_selector("input", timeout=8000)
+            # 等待旧系统的登录框加载出来
+            page.wait_for_selector("input:not(#slg-ldap-username)", timeout=8000)
             inputs = page.locator("input").all()
             
-            # 兼容：如果系统有 3 个输入框（店铺号 + 账号 + 密码）
-            if len(inputs) >= 3:
-                print("📝 检测到 3 个输入框（店铺号/账号/密码模式）：")
-                inputs[0].fill(store_code if store_code else "1") # 第一框填店铺号
-                inputs[1].fill(user)                            # 第二框填账号
-                inputs[2].fill(pwd)                             # 第三框填密码
-            # 兼容：如果系统有 2 个输入框（账号 + 密码）
-            elif len(inputs) == 2:
-                print("📝 检测到 2 个输入框（账号/密码模式）：")
-                inputs[0].fill(user)
-                inputs[1].fill(pwd)
+            # 过滤掉隐藏节点，只填可视节点
+            visible_inputs = [i for i in inputs if i.is_visible()]
+            print(f"📝 检测到 {len(visible_inputs)} 个可视登录框")
 
-            # 点击登录提交
-            login_btn = page.locator("button, input[type='submit'], .login-btn, text=/登录|Sign In/i").first
-            if login_btn.is_visible():
-                login_btn.click()
-            else:
-                page.keyboard.press("Enter")
-            
-            print("✅ 成功提交系统登录！进入系统中...")
+            if len(visible_inputs) >= 3:
+                visible_inputs[0].fill(store_code if store_code else "1")
+                visible_inputs[1].fill(user)
+                visible_inputs[2].fill(pwd)
+            elif len(visible_inputs) >= 2:
+                visible_inputs[0].fill(user)
+                visible_inputs[1].fill(pwd)
+
+            page.keyboard.press("Enter")
+            print("✅ 旧系统账号密码提交成功！等待登录进入...")
             page.wait_for_timeout(5000)
 
         except Exception as e:
@@ -113,9 +101,9 @@ def scrape_all_data():
             page.wait_for_timeout(1000)
 
         page_text = page.evaluate("() => document.body.innerText")
-        print("\n===【登录后页面获取到的真实内容】===")
+        print("\n===【突破 WAF 进入系统后获取到的真实文本】===")
         print(page_text[:3000])
-        print("========================================\n")
+        print("==================================================\n")
 
         browser.close()
         return page_text
