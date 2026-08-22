@@ -9,19 +9,11 @@ def scrape_all_data():
     
     user = os.environ.get("OLD_SYS_USER") or "jk1588"
     pwd = os.environ.get("OLD_SYS_PWD") or "jk1588"
-    raw_url = os.environ.get("OLD_SYS_URL") or "https://185.180.19.221/h5/"
+    
+    # 强制清理网址格式，确保是标准的 https://...
+    target_url = "https://185.180.19.221/h5/"
 
-    # ----------------------------------------------------
-    # 核心突破：将 SafeLine 防火墙凭证 (9999:8888) 注入 URL
-    # 转换为: https://9999:8888@185.180.19.221/h5/
-    # ----------------------------------------------------
-    if "://" in raw_url:
-        protocol, domain_path = raw_url.split("://", 1)
-        auth_url = f"{protocol}://9999:8888@{domain_path}"
-    else:
-        auth_url = f"https://9999:8888@{raw_url}"
-
-    print(f"🔗 正在带 Basic Auth 凭证直接穿透 WAF: {auth_url}")
+    print(f"🔗 正在访问标准目标页面: {target_url}")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -33,7 +25,8 @@ def scrape_all_data():
                 '--disable-blink-features=AutomationControlled'
             ]
         )
-        # 在 Context 级别显式配置 http_credentials 双保险
+        
+        # 使用 http_credentials 处理标准 HTTP Basic 认证
         context = browser.new_context(
             user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
             viewport={'width': 375, 'height': 812},
@@ -42,33 +35,45 @@ def scrape_all_data():
         )
         page = context.new_page()
 
-        # 1. 直接访问带认证的 URL
-        page.goto(auth_url, wait_until="networkidle")
-        page.wait_for_timeout(4000)
+        # 1. 打开页面
+        page.goto(target_url, wait_until="domcontentloaded")
+        page.wait_for_timeout(3000)
 
-        # 2. 自动填写旧系统登录表单 (jk1588 / jk1588)
-        print("🔑 自动填写旧系统账号密码...")
+        # 2. 如果页面出现了 SafeLine 的 Confirm / 人机按钮，进行强力自动点击
+        print("🛡️ 正在检测并穿透 SafeLine WAF 拦截...")
         try:
-            # 等待登录框出现
-            page.wait_for_selector("input", timeout=8000)
+            # 尝试定位并点击任何看起来像 Confirm / 确认 / 验证 的按钮
+            confirm_btn = page.locator("text=/Confirm|确认|验证|Sign In/i").first
+            if confirm_btn.is_visible(timeout=3000):
+                confirm_btn.click()
+                print("👆 已触发 SafeLine 确认按钮点击！")
+                page.wait_for_timeout(3000)
+        except Exception as e:
+            print(f"ℹ️ 无需点击按钮或已自动过关: {e}")
+
+        # 3. 填入旧系统真正账号密码 (jk1588 / jk1588)
+        print("🔑 尝试填入旧系统账号密码...")
+        try:
+            page.wait_for_selector("input", timeout=5000)
             inputs = page.locator("input").all()
             if len(inputs) >= 2:
                 inputs[0].fill(user)
                 inputs[1].fill(pwd)
                 page.keyboard.press("Enter")
-                print("✅ 已输入系统账号密码并提交！")
+                print("✅ 已成功输入 jk1588 账号密码并按回车！")
                 page.wait_for_timeout(4000)
         except Exception as e:
-            print(f"⚠️ 登录框定位提示: {e}")
+            print(f"⚠️ 登录表单填入提示: {e}")
 
-        # 3. 点击业绩与滚动拉取
+        # 4. 点击业绩栏目
         try:
             page.get_by_text("业绩").click(timeout=3000)
             page.wait_for_timeout(2000)
         except:
             pass
 
-        print("⏬ 正在向下滚动页面以加载所有卡片...")
+        # 5. 滚动拉取所有伙伴卡片
+        print("⏬ 正在向下滚动加载卡片数据...")
         for _ in range(15):
             page.mouse.wheel(0, 1500)
             page.wait_for_timeout(1000)
@@ -106,7 +111,7 @@ def run_real_crawler():
 
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(updated_data, f, ensure_ascii=False, indent=2)
-    print("💾 已写入 data.json！")
+    print("💾 已更新写入 data.json！")
 
 if __name__ == "__main__":
     run_real_crawler()
