@@ -30,46 +30,50 @@ def scrape_all_data():
         )
         page = context.new_page()
 
-        print(f"🔗 正在访问页面: {target_url}")
-        page.goto(target_url, wait_until="domcontentloaded")
-        page.wait_for_timeout(3000)
+        print(f"🔗 正在访问目标页面: {target_url}")
+        page.goto(target_url, wait_until="networkidle")
+        page.wait_for_timeout(4000)
 
         # ----------------------------------------------------
-        # 步骤 1：精确锁定 SafeLine WAF 输入框 (#slg-ldap-username)
+        # 步骤 1：穿透 SafeLine 防火墙 (强力等候 + 9999/8888)
         # ----------------------------------------------------
-        safeline_user_input = page.locator("#slg-ldap-username")
-        
-        if safeline_user_input.is_visible(timeout=4000):
-            print("🛡️ 精准锁定 SafeLine 防火墙！开始输入 9999 / 8888 穿透...")
-            try:
-                # 填入 SafeLine 凭证
-                safeline_user_input.fill("9999")
-                
-                # 定位密码框（同级别的 input[type='password']）
-                pwd_input = page.locator("input[type='password']").first
-                pwd_input.fill("8888")
-                
-                # 按回车或点击 Confirm 按钮提交 SafeLine 验证
-                page.keyboard.press("Enter")
-                print("✅ SafeLine 穿透指令已提交！等待页面重定向...")
-                page.wait_for_timeout(6000)
-            except Exception as e:
-                print(f"⚠️ SafeLine 提交提示: {e}")
-        else:
-            print("🟢 未检测到 SafeLine 防火墙拦截，直接进行系统登录。")
-
-        # ----------------------------------------------------
-        # 步骤 2：登录旧系统 (jk1588 / jk1588)
-        # ----------------------------------------------------
-        print("🔑 正在定位并填写旧系统账号密码...")
+        print("🛡️ 正在强力检测 SafeLine 防火墙拦截...")
         try:
-            # 等待旧系统的登录框加载出来
-            page.wait_for_selector("input:not(#slg-ldap-username)", timeout=8000)
-            inputs = page.locator("input").all()
+            # 强制等待任意 input 渲染出来（最高等待 8 秒）
+            page.wait_for_selector("input", timeout=8000)
             
-            # 过滤掉隐藏节点，只填可视节点
+            # 检查页面是否包含 SafeLine / Confirm / WAF 等标志文本
+            page_content = page.content()
+            is_waf = "SafeLine" in page_content or "slg-" in page_content or "Confirm You Are Human" in page_content
+            
+            if is_waf:
+                print("⚠️ 确定命中 SafeLine 防火墙！开始填入 9999 / 8888 穿透...")
+                
+                # 获取当前 SafeLine 页面上的所有输入框
+                waf_inputs = page.locator("input").all()
+                if len(waf_inputs) >= 2:
+                    waf_inputs[0].fill("9999")
+                    waf_inputs[1].fill("8888")
+                    page.keyboard.press("Enter")
+                    print("✅ 已提交 SafeLine 防火墙凭证 (9999/8888)！等待系统跳转...")
+                    page.wait_for_timeout(6000)
+            else:
+                print("🟢 未发现防火墙拦截特征，准备直连系统。")
+
+        except Exception as e:
+            print(f"ℹ️ 防火墙步骤检测提示: {e}")
+
+        # ----------------------------------------------------
+        # 步骤 2：自动登录旧系统 (jk1588 / jk1588)
+        # ----------------------------------------------------
+        print("🔑 正在进行旧系统账号登录...")
+        try:
+            # 穿透防火墙后，等待旧系统的真实登录框加载
+            page.wait_for_timeout(3000)
+            inputs = page.locator("input").all()
             visible_inputs = [i for i in inputs if i.is_visible()]
-            print(f"📝 检测到 {len(visible_inputs)} 个可视登录框")
+            
+            print(f"📝 找到 {len(visible_inputs)} 个可视登录输入框")
 
             if len(visible_inputs) >= 3:
                 visible_inputs[0].fill(store_code if store_code else "1")
@@ -80,11 +84,11 @@ def scrape_all_data():
                 visible_inputs[1].fill(pwd)
 
             page.keyboard.press("Enter")
-            print("✅ 旧系统账号密码提交成功！等待登录进入...")
+            print("✅ 成功提交旧系统账号密码 (jk1588/jk1588)！")
             page.wait_for_timeout(5000)
 
         except Exception as e:
-            print(f"⚠️ 系统登录表单填写提示: {e}")
+            print(f"⚠️ 旧系统登录表单提示: {e}")
 
         # ----------------------------------------------------
         # 步骤 3：数据拉取与页面分析
