@@ -5,14 +5,23 @@ from datetime import datetime
 from playwright.sync_api import sync_playwright
 
 def scrape_all_data():
-    print("🚀 启动伪装 Chrome 浏览器以穿透 SafeLine WAF 防火墙...")
+    print("🚀 启动 Playwright 自动化无头 Chrome 浏览器...")
     
     user = os.environ.get("OLD_SYS_USER") or "jk1588"
     pwd = os.environ.get("OLD_SYS_PWD") or "jk1588"
-    login_url = os.environ.get("OLD_SYS_URL") or "https://185.180.19.221/h5/"
+    raw_url = os.environ.get("OLD_SYS_URL") or "https://185.180.19.221/h5/"
 
-    if not login_url.startswith("http"):
-        login_url = "https://185.180.19.221/h5/"
+    # ----------------------------------------------------
+    # 核心突破：将 SafeLine 防火墙凭证 (9999:8888) 注入 URL
+    # 转换为: https://9999:8888@185.180.19.221/h5/
+    # ----------------------------------------------------
+    if "://" in raw_url:
+        protocol, domain_path = raw_url.split("://", 1)
+        auth_url = f"{protocol}://9999:8888@{domain_path}"
+    else:
+        auth_url = f"https://9999:8888@{raw_url}"
+
+    print(f"🔗 正在带 Basic Auth 凭证直接穿透 WAF: {auth_url}")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -24,83 +33,49 @@ def scrape_all_data():
                 '--disable-blink-features=AutomationControlled'
             ]
         )
+        # 在 Context 级别显式配置 http_credentials 双保险
         context = browser.new_context(
             user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
             viewport={'width': 375, 'height': 812},
-            ignore_https_errors=True
+            ignore_https_errors=True,
+            http_credentials={"username": "9999", "password": "8888"}
         )
         page = context.new_page()
-        page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-        print(f"🔗 正在访问目标页面: {login_url}")
-        page.goto(login_url, wait_until="networkidle")
-        page.wait_for_timeout(3000)
+        # 1. 直接访问带认证的 URL
+        page.goto(auth_url, wait_until="networkidle")
+        page.wait_for_timeout(4000)
 
-        # ----------------------------------------------------
-        # 步骤 1：穿透 SafeLine 防火墙 (9999 / 8888)
-        # ----------------------------------------------------
-        print("🛡️ 开始执行 SafeLine 防火墙穿透...")
-        
+        # 2. 自动填写旧系统登录表单 (jk1588 / jk1588)
+        print("🔑 自动填写旧系统账号密码...")
         try:
-            # 获取页面所有的输入框
-            inputs = page.locator("input").all()
-            if len(inputs) >= 2:
-                inputs[0].fill("9999")
-                inputs[1].fill("8888")
-                page.keyboard.press("Enter")
-                print("✅ 已输入 9999 / 8888 并按下 Enter 回车提交！")
-            else:
-                # 如果找不到 input 节点，使用键盘 Tab 键快速导航填充
-                page.keyboard.press("Tab")
-                page.keyboard.type("9999")
-                page.keyboard.press("Tab")
-                page.keyboard.type("8888")
-                page.keyboard.press("Enter")
-                print("⌨️ 已通过键盘模拟 Tab/Enter 提交防火墙凭证！")
-            
-            page.wait_for_timeout(4000)
-        except Exception as e:
-            print(f"ℹ️ 防火墙步骤处理提示: {e}")
-
-        # ----------------------------------------------------
-        # 步骤 2：登录旧系统 (jk1588 / jk1588)
-        # ----------------------------------------------------
-        print("🔑 正在自动填写旧系统账号密码...")
-        try:
-            # 兼容修正后的 Selector 选择器
+            # 等待登录框出现
+            page.wait_for_selector("input", timeout=8000)
             inputs = page.locator("input").all()
             if len(inputs) >= 2:
                 inputs[0].fill(user)
                 inputs[1].fill(pwd)
                 page.keyboard.press("Enter")
-                print("✅ 已提交旧系统账号密码 (jk1588/jk1588)！")
-            else:
-                page.type("input[type='text']", user)
-                page.type("input[type='password']", pwd)
-                page.keyboard.press("Enter")
-            
-            page.wait_for_timeout(4000)
+                print("✅ 已输入系统账号密码并提交！")
+                page.wait_for_timeout(4000)
         except Exception as e:
-            print(f"⚠️ 旧系统登录动作提示: {e}")
+            print(f"⚠️ 登录框定位提示: {e}")
 
-        # ----------------------------------------------------
-        # 步骤 3：跳转业绩页与加载全量卡片
-        # ----------------------------------------------------
+        # 3. 点击业绩与滚动拉取
         try:
             page.get_by_text("业绩").click(timeout=3000)
             page.wait_for_timeout(2000)
         except:
             pass
 
-        print("⏬ 向下拉取全量卡片...")
+        print("⏬ 正在向下滚动页面以加载所有卡片...")
         for _ in range(15):
             page.mouse.wheel(0, 1500)
             page.wait_for_timeout(1000)
 
-        # 打印系统登录后的真实页面内容
         page_text = page.evaluate("() => document.body.innerText")
         print("\n===【系统穿透后获取的真实页面文本】===")
-        print(page_text[:3000])
+        print(page_text[:2000])
         print("==========================================")
 
         browser.close()
