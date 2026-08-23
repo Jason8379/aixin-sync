@@ -15,6 +15,8 @@ def run_crawler():
     STORE_NAME = "XYGDP222222"
     TARGET_URL = "https://185.180.19.221/h5/"
     DATA_FILE = "data.json"
+    # 业绩统计页面的直接地址
+    STATS_URL = "https://185.180.19.221/h5/#/pages/customer/yejitongji"
     
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -34,11 +36,11 @@ def run_crawler():
         )
         page = context.new_page()
         
-        print(f"🌐 访问: {TARGET_URL}")
+        print(f"🌐 访问登录页: {TARGET_URL}")
         page.goto(TARGET_URL, wait_until="networkidle")
         page.wait_for_timeout(4000)
         
-        # ---------- 第一步：防火墙认证 ----------
+        # ---------- 防火墙认证 ----------
         print("🛡️ 处理防火墙...")
         try:
             page.wait_for_selector("input", timeout=8000)
@@ -53,7 +55,7 @@ def run_crawler():
         except Exception as e:
             print(f"⚠️ 防火墙跳过: {e}")
         
-        # ---------- 第二步：系统登录 ----------
+        # ---------- 系统登录 ----------
         print("🔑 登录系统...")
         try:
             page.wait_for_selector("input", timeout=10000)
@@ -81,51 +83,18 @@ def run_crawler():
             browser.close()
             return
         
-        # ---------- 第三步：进入记账中心 ----------
-        print("📊 点击记账中心...")
+        # ---------- 直接跳转到业绩统计页面 ----------
+        print("📈 直接跳转到业绩统计页面...")
         try:
-            # 等待底部导航出现
-            page.wait_for_selector(".cu-bar.tabbar .action", timeout=15000)
-            tabs = page.locator(".cu-bar.tabbar .action").all()
-            print(f"   找到 {len(tabs)} 个导航项")
-            
-            if len(tabs) >= 3:
-                tabs[2].click()
-                print("   ✅ 点击了记账中心（第三项）")
-            else:
-                for i, tab in enumerate(tabs):
-                    print(f"   导航{i}: {tab.inner_text()}")
-                page.click("text=记账中心")
-                print("   ✅ 用文本点击记账中心")
-            
-            page.wait_for_timeout(3000)
+            page.goto(STATS_URL, wait_until="networkidle")
+            page.wait_for_timeout(5000)
+            print("✅ 已到达业绩统计页面")
         except Exception as e:
-            print(f"❌ 点击记账中心失败: {e}")
+            print(f"❌ 跳转失败: {e}")
             browser.close()
             return
         
-        # ---------- 第四步：点击业绩统计 ----------
-        print("📈 进入业绩统计...")
-        try:
-            # 尝试多种方式
-            success = False
-            for selector in ["text=业绩统计", "text=业绩", "uni-view:has-text('业绩')"]:
-                try:
-                    page.click(selector, timeout=5000)
-                    print(f"   ✅ 点击成功: {selector}")
-                    success = True
-                    break
-                except:
-                    pass
-            
-            if not success:
-                print("   ⚠️ 点击失败，尝试直接滚动到业绩区域")
-            
-            page.wait_for_timeout(3000)
-        except Exception as e:
-            print(f"⚠️ 业绩统计点击失败: {e}")
-        
-        # ---------- 第五步：滚动加载 ----------
+        # ---------- 滚动加载所有订单 ----------
         print("🔄 滚动加载全部订单...")
         last_height = 0
         same_count = 0
@@ -140,9 +109,10 @@ def run_crawler():
                 last_height = new_height
             print(f"   当前高度: {new_height}")
         
-        # ---------- 第六步：提取订单 ----------
+        # ---------- 提取订单数据 ----------
         print("📝 提取订单数据...")
         orders = []
+        # 使用之前HTML中确认的class选择器
         box_elements = page.locator(".box").all()
         print(f"   找到 {len(box_elements)} 个订单卡片")
         
@@ -167,38 +137,24 @@ def run_crawler():
                 }
                 orders.append(order)
             except Exception as e:
-                print(f"   ⚠️ 解析失败: {e}")
+                print(f"   ⚠️ 解析单个订单失败: {e}")
                 continue
         
         print(f"✅ 共提取 {len(orders)} 条订单")
         
-        # ---------- 第七步：保存 ----------
-        history = []
-        if os.path.exists(DATA_FILE):
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
-                try:
-                    history = json.load(f)
-                except:
-                    history = []
-        
-        if history and not isinstance(history, list):
-            history = []
-        
-        existing_ids = {o.get("单号") for o in history if o.get("单号")}
-        new_orders = [o for o in orders if o.get("单号") and o.get("单号") not in existing_ids]
-        
-        if new_orders:
-            history.extend(new_orders)
-            print(f"📈 新增 {len(new_orders)} 条，总计 {len(history)} 条")
+        # ---------- 保存数据（覆盖旧格式） ----------
+        # 直接覆盖，不再保留旧格式数据，确保数据为订单数组
+        if orders:
+            with open(DATA_FILE, "w", encoding="utf-8") as f:
+                json.dump(orders, f, ensure_ascii=False, indent=2)
+            print(f"💾 已保存 {len(orders)} 条订单到 {DATA_FILE}")
         else:
-            print("📭 没有新订单")
+            print("⚠️ 未提取到任何订单，请检查页面是否正常")
+            # 保留旧数据，但记录一个错误标记
+            error_data = {"error": "no_orders", "timestamp": time.time()}
+            with open(DATA_FILE, "w", encoding="utf-8") as f:
+                json.dump(error_data, f, ensure_ascii=False, indent=2)
         
-        history.sort(key=lambda x: x.get("配单时间", ""), reverse=True)
-        
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
-        
-        print(f"💾 数据已保存到 {DATA_FILE}")
         browser.close()
 
 if __name__ == "__main__":
