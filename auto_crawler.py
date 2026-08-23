@@ -14,9 +14,8 @@ def run_crawler():
     SYS_PWD = "jk1588"
     STORE_NAME = "XYGDP222222"
     TARGET_URL = "https://185.180.19.221/h5/"
-    DATA_FILE = "data.json"
-    # 业绩统计页面的直接地址
     STATS_URL = "https://185.180.19.221/h5/#/pages/customer/yejitongji"
+    DATA_FILE = "data.json"
     
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -40,7 +39,7 @@ def run_crawler():
         page.goto(TARGET_URL, wait_until="networkidle")
         page.wait_for_timeout(4000)
         
-        # ---------- 防火墙认证 ----------
+        # ---------- 防火墙 ----------
         print("🛡️ 处理防火墙...")
         try:
             page.wait_for_selector("input", timeout=8000)
@@ -55,13 +54,12 @@ def run_crawler():
         except Exception as e:
             print(f"⚠️ 防火墙跳过: {e}")
         
-        # ---------- 系统登录 ----------
+        # ---------- 登录 ----------
         print("🔑 登录系统...")
         try:
             page.wait_for_selector("input", timeout=10000)
             inputs = page.locator("input").all()
             visible_inputs = [i for i in inputs if i.is_visible()]
-            
             if len(visible_inputs) >= 3:
                 visible_inputs[0].fill(STORE_NAME)
                 visible_inputs[1].fill(SYS_USER)
@@ -83,39 +81,53 @@ def run_crawler():
             browser.close()
             return
         
-        # ---------- 直接跳转到业绩统计页面 ----------
-        print("📈 直接跳转到业绩统计页面...")
-        try:
-            page.goto(STATS_URL, wait_until="networkidle")
-            page.wait_for_timeout(5000)
-            print("✅ 已到达业绩统计页面")
-        except Exception as e:
-            print(f"❌ 跳转失败: {e}")
-            browser.close()
-            return
+        # ---------- 跳转到业绩统计 ----------
+        print(f"📈 跳转到业绩统计页面: {STATS_URL}")
+        page.goto(STATS_URL, wait_until="networkidle")
+        page.wait_for_timeout(10000)  # 增加等待时间
         
-        # ---------- 滚动加载所有订单 ----------
-        print("🔄 滚动加载全部订单...")
-        last_height = 0
-        same_count = 0
-        while same_count < 4:
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(1500)
-            new_height = page.evaluate("document.body.scrollHeight")
-            if new_height == last_height:
-                same_count += 1
-            else:
-                same_count = 0
-                last_height = new_height
-            print(f"   当前高度: {new_height}")
+        # 打印当前页面信息
+        print(f"📍 当前URL: {page.url}")
+        print(f"📄 页面标题: {page.title()}")
         
-        # ---------- 提取订单数据 ----------
-        print("📝 提取订单数据...")
+        # 获取页面可见文本（前500字符）
+        body_text = page.evaluate("() => document.body.innerText")
+        print("=== 页面文本内容（前800字符）===")
+        print(body_text[:800])
+        print("=== 页面文本结束 ===")
+        
+        # 检查是否有“总金额”关键字（说明数据已加载）
+        if "总金额" in body_text:
+            print("✅ 页面中包含'总金额'，数据已加载")
+        else:
+            print("⚠️ 页面中未找到'总金额'，可能数据未加载或URL不正确")
+        
+        # ---------- 尝试提取订单 ----------
+        print("📝 尝试提取订单...")
         orders = []
-        # 使用之前HTML中确认的class选择器
-        box_elements = page.locator(".box").all()
-        print(f"   找到 {len(box_elements)} 个订单卡片")
         
+        # 方法1：使用 .box 选择器
+        box_elements = page.locator(".box").all()
+        print(f"   方法1 (class='.box'): 找到 {len(box_elements)} 个元素")
+        
+        # 方法2：如果 .box 找不到，尝试查找包含“单号”的父级元素
+        if len(box_elements) == 0:
+            # 查找所有包含“单号”文本的元素，然后向上找父级
+            order_containers = page.locator("uni-view:has-text('单号')").all()
+            print(f"   方法2 (包含'单号'的uni-view): 找到 {len(order_containers)} 个")
+            # 将找到的元素视为订单卡片
+            for el in order_containers:
+                # 尝试获取其父级（可能是整个卡片）
+                parent = el.locator("xpath=..")
+                if parent.count() > 0:
+                    box_elements.append(parent)
+        
+        # 如果还是没有，尝试查找所有 class 中包含 "box" 的元素
+        if len(box_elements) == 0:
+            box_elements = page.locator("[class*='box']").all()
+            print(f"   方法3 ([class*='box']): 找到 {len(box_elements)} 个")
+        
+        # 解析每个卡片
         for box in box_elements:
             try:
                 text = box.inner_text()
@@ -137,20 +149,18 @@ def run_crawler():
                 }
                 orders.append(order)
             except Exception as e:
-                print(f"   ⚠️ 解析单个订单失败: {e}")
+                print(f"   ⚠️ 解析单个卡片失败: {e}")
                 continue
         
         print(f"✅ 共提取 {len(orders)} 条订单")
         
-        # ---------- 保存数据（覆盖旧格式） ----------
-        # 直接覆盖，不再保留旧格式数据，确保数据为订单数组
+        # ---------- 保存 ----------
         if orders:
             with open(DATA_FILE, "w", encoding="utf-8") as f:
                 json.dump(orders, f, ensure_ascii=False, indent=2)
             print(f"💾 已保存 {len(orders)} 条订单到 {DATA_FILE}")
         else:
-            print("⚠️ 未提取到任何订单，请检查页面是否正常")
-            # 保留旧数据，但记录一个错误标记
+            print("⚠️ 未提取到任何订单，写入错误标记")
             error_data = {"error": "no_orders", "timestamp": time.time()}
             with open(DATA_FILE, "w", encoding="utf-8") as f:
                 json.dump(error_data, f, ensure_ascii=False, indent=2)
