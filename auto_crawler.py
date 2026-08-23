@@ -50,12 +50,10 @@ def run_crawler():
                 page.keyboard.press("Enter")
                 print("✅ 防火墙凭证已提交 (9999/8888)")
                 page.wait_for_timeout(5000)
-            else:
-                print("⚠️ 未检测到防火墙输入框，可能已通过防火墙")
         except Exception as e:
             print(f"⚠️ 防火墙步骤跳过: {e}")
         
-        # ---------- 第二步：系统登录（智能判断缓存状态） ----------
+        # ---------- 第二步：系统登录（正确顺序：账号 → 密码 → 店铺号） ----------
         print("🔑 处理系统登录...")
         try:
             page.wait_for_selector("input", timeout=10000)
@@ -64,16 +62,12 @@ def run_crawler():
             
             print(f"   找到 {len(visible_inputs)} 个可见输入框")
             
-            # 打印输入框的当前值，判断是否有缓存
-            for i, inp in enumerate(visible_inputs):
-                try:
-                    val = inp.get_attribute("value") or ""
-                    placeholder = inp.get_attribute("placeholder") or ""
-                    print(f"   输入框{i}: value='{val[:20]}', placeholder='{placeholder}'")
-                except:
-                    pass
+            # 按顺序识别输入框（根据你提供的HTML）
+            # 输入框0: 账号 (type=text, 第一个)
+            # 输入框1: 密码 (type=password)
+            # 输入框2: 店铺号 (type=text, 第三个)
             
-            # 检查第一个输入框是否已有值（缓存）
+            # 检查是否有缓存（第一个输入框是否有值）
             first_value = ""
             if len(visible_inputs) >= 1:
                 try:
@@ -82,32 +76,39 @@ def run_crawler():
                     pass
             
             if first_value == SYS_USER:
-                # 用户名已缓存，直接点击登录
-                print(f"   ✅ 检测到缓存用户名 '{SYS_USER}'，直接点击登录")
+                # 账号已缓存，直接点击登录
+                print(f"   ✅ 检测到缓存账号 '{SYS_USER}'，直接点击登录")
                 login_btn = page.locator("button:has-text('立即登录')")
                 if login_btn.count() > 0:
                     login_btn.click()
                 else:
                     page.keyboard.press("Enter")
             else:
-                # 输入框为空，填写完整信息
-                print("   📝 输入框为空，填写店铺名+账号+密码")
+                # 没有缓存，按正确顺序填写
+                print("   📝 按顺序填写：账号 → 密码 → 店铺号")
                 if len(visible_inputs) >= 3:
-                    visible_inputs[0].fill(STORE_NAME)
-                    visible_inputs[1].fill(SYS_USER)
-                    visible_inputs[2].fill(SYS_PWD)
-                    print(f"   ✅ 已填写: 店铺名={STORE_NAME}, 账号={SYS_USER}")
+                    # 输入框0: 账号
+                    visible_inputs[0].fill(SYS_USER)
+                    print(f"   ✅ 填了账号: {SYS_USER}")
+                    # 输入框1: 密码
+                    visible_inputs[1].fill(SYS_PWD)
+                    print(f"   ✅ 填了密码: {SYS_PWD}")
+                    # 输入框2: 店铺号
+                    visible_inputs[2].fill(STORE_NAME)
+                    print(f"   ✅ 填了店铺号: {STORE_NAME}")
                 elif len(visible_inputs) >= 2:
                     visible_inputs[0].fill(SYS_USER)
                     visible_inputs[1].fill(SYS_PWD)
-                    print(f"   ✅ 已填写: 账号={SYS_USER}")
+                    print(f"   ✅ 填了账号+密码")
                 
                 # 点击登录
                 login_btn = page.locator("button:has-text('立即登录')")
                 if login_btn.count() > 0:
                     login_btn.click()
+                    print("   ✅ 点击了'立即登录'按钮")
                 else:
                     page.keyboard.press("Enter")
+                    print("   ✅ 按回车提交")
             
             print("⏳ 等待登录完成...")
             page.wait_for_timeout(8000)
@@ -117,13 +118,12 @@ def run_crawler():
             browser.close()
             return
         
-        # ---------- 第三步：验证登录是否成功 ----------
+        # ---------- 第三步：验证登录 ----------
         print("🔍 验证登录状态...")
         current_url = page.url
         page_text = page.evaluate("() => document.body.innerText")
         print(f"   当前URL: {current_url}")
         
-        # 判断是否在登录页（如果同时包含"立即登录"和"没有账号"则仍在登录页）
         if "没有账号" in page_text and "立即登录" in page_text:
             print("❌ 登录失败，仍在登录页面")
             print("=== 页面内容 ===")
@@ -136,43 +136,30 @@ def run_crawler():
         else:
             print("✅ 登录成功，已进入系统")
         
-        # ---------- 第四步：进入记账中心（底部导航第三项） ----------
+        # ---------- 第四步：进入记账中心 ----------
         print("📊 点击记账中心...")
         try:
-            # 等待底部导航出现
             page.wait_for_selector(".cu-bar.tabbar .action", timeout=15000)
             tabs = page.locator(".cu-bar.tabbar .action").all()
             print(f"   找到 {len(tabs)} 个导航项")
-            
-            # 打印导航文本
-            for i, tab in enumerate(tabs):
-                try:
-                    text = tab.inner_text()
-                    print(f"   导航{i}: {text[:30]}")
-                except:
-                    pass
             
             if len(tabs) >= 3:
                 tabs[2].click()
                 print("   ✅ 点击了第三项（记账中心）")
                 page.wait_for_timeout(3000)
             else:
-                # 如果导航项数量不够，尝试点击包含"记账"的元素
                 page.click("text=记账", timeout=5000)
                 print("   ✅ 用'记账'文本点击")
                 page.wait_for_timeout(3000)
             
         except Exception as e:
             print(f"❌ 点击导航失败: {e}")
-            print("=== 当前页面内容 ===")
-            print(page.evaluate("() => document.body.innerText")[:500])
             browser.close()
             return
         
         # ---------- 第五步：点击业绩统计 ----------
         print("📈 进入业绩统计...")
         try:
-            # 尝试多种方式
             for selector in ["text=业绩统计", "text=业绩", "uni-view:has-text('业绩')"]:
                 try:
                     page.click(selector, timeout=3000)
@@ -209,7 +196,6 @@ def run_crawler():
         print(f"   页面总文本长度: {len(full_text)}")
         
         orders = []
-        # 用正则分割订单
         blocks = re.split(r'单号[：:]\s*(\d+)', full_text)
         
         for i in range(1, len(blocks), 2):
@@ -237,7 +223,6 @@ def run_crawler():
                 json.dump(orders, f, ensure_ascii=False, indent=2)
             print(f"💾 已保存 {len(orders)} 条订单")
         else:
-            # 如果有页面内容但没有订单，保存预览用于调试
             debug_data = {
                 "error": "no_orders", 
                 "timestamp": time.time(), 
@@ -246,7 +231,7 @@ def run_crawler():
             }
             with open(DATA_FILE, "w", encoding="utf-8") as f:
                 json.dump(debug_data, f, ensure_ascii=False, indent=2)
-            print("⚠️ 未提取到订单，已写入调试信息")
+            print("⚠️ 未提取到订单")
         
         browser.close()
 
