@@ -13,10 +13,7 @@ def run_crawler():
     SYS_USER = "jk1588"
     SYS_PWD = "jk1588"
     STORE_NAME = "XYGDP222222"
-    # 更新为新网址
     TARGET_URL = "https://34.143.196.124/h5/"
-    # 业绩统计页面的直接地址（新网址）
-    STATS_URL = "https://34.143.196.124/h5/#/pages/customer/yejitongji"
     DATA_FILE = "data.json"
     
     with sync_playwright() as p:
@@ -62,11 +59,10 @@ def run_crawler():
             page.wait_for_selector("input", timeout=10000)
             inputs = page.locator("input").all()
             visible_inputs = [i for i in inputs if i.is_visible()]
-            
             print(f"   找到 {len(visible_inputs)} 个可见输入框")
             
             if len(visible_inputs) >= 3:
-                # 正确顺序：账号 → 密码 → 店铺号
+                # 顺序：账号 → 密码 → 店铺号
                 visible_inputs[0].click()
                 visible_inputs[0].fill(SYS_USER)
                 print(f"   ✅ 填了账号: {SYS_USER}")
@@ -78,18 +74,25 @@ def run_crawler():
                 visible_inputs[2].click()
                 visible_inputs[2].fill(STORE_NAME)
                 print(f"   ✅ 填了店铺号: {STORE_NAME}")
+            else:
+                print("   ⚠️ 输入框数量不足，尝试按索引填写")
+                if len(visible_inputs) >= 2:
+                    visible_inputs[0].fill(SYS_USER)
+                    visible_inputs[1].fill(SYS_PWD)
             
-            # 点击登录
+            # ---------- 关键修改：点击“立即登录”按钮 ----------
             login_btn = page.locator("button:has-text('立即登录')")
             if login_btn.count() > 0:
                 login_btn.click()
                 print("   ✅ 点击了'立即登录'按钮")
             else:
-                page.keyboard.press("Enter")
-                print("   ✅ 按回车提交")
+                # 如果找不到，尝试用文本匹配
+                page.click("text=立即登录")
+                print("   ✅ 用文本点击了'立即登录'")
             
             print("⏳ 等待登录完成...")
-            page.wait_for_timeout(8000)
+            # 等待 10 秒，让页面跳转
+            page.wait_for_timeout(10000)
             
         except Exception as e:
             print(f"❌ 登录操作失败: {e}")
