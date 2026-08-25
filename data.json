@@ -1,14 +1,11 @@
 {
-  "orders": [],
-  "withdrawals": [],
-  "team": {
-    "summary": {
-      "team_members": 0,
-      "direct_referrals": 0,
-      "today_new": 0,
-      "today_total_performance": 0.0
-    },
-    "members": []
+  "summary": {
+    "可提现佣金": 1981.0,
+    "已提现佣金": 0.0,
+    "推广佣金": 1981.0,
+    "推广订单数": 0,
+    "推荐人": "花长洪"
   },
-  "updated_at": "2026-08-25T12:42:05.368390"
+  "orders": [],
+  "updated_at": "2026-08-25T13:02:01.010511"
 }
