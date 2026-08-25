@@ -1,5 +1,6 @@
 {
-  "error": "login_failed",
-  "timestamp": 1787660090.0942094,
-  "url": "https://34.143.196.124/h5/#/"
+  "error": "no_orders",
+  "timestamp": 1787660677.3061464,
+  "page_preview": "业绩订单\n总金额：￥0，订单数量：0，上架费：0\n所有\n待付款\n待收款\n待上架\n已完成\n——————只显示当日数据——————",
+  "url": "https://34.143.196.124/h5/#/pages/customer/yejitongji"
 }
