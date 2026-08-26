@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
-    <title>团队业绩 · 数据看板</title>
+    <title>团队订单数据</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -12,20 +12,9 @@
             padding: 16px;
             color: #1e293b;
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        h1 {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-        .subtitle {
-            color: #64748b;
-            font-size: 14px;
-            margin-bottom: 20px;
-        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { font-size: 24px; font-weight: 600; }
+        .subtitle { color: #64748b; font-size: 14px; margin-bottom: 20px; }
         .stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -38,22 +27,9 @@
             border-radius: 12px;
             border: 1px solid #e9edf2;
         }
-        .stat-card .label {
-            font-size: 13px;
-            color: #94a3b8;
-            font-weight: 500;
-        }
-        .stat-card .value {
-            font-size: 22px;
-            font-weight: 700;
-            margin-top: 4px;
-        }
-        .stat-card .value .unit {
-            font-size: 13px;
-            font-weight: 400;
-            color: #94a3b8;
-            margin-left: 2px;
-        }
+        .stat-card .label { font-size: 13px; color: #94a3b8; font-weight: 500; }
+        .stat-card .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+        .stat-card .value .unit { font-size: 13px; font-weight: 400; color: #94a3b8; margin-left: 2px; }
         .toolbar {
             display: flex;
             flex-wrap: wrap;
@@ -70,17 +46,8 @@
             background: white;
             outline: none;
         }
-        .toolbar input:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
-        }
-        .toolbar .badge {
-            background: #eef2f6;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            color: #475569;
-        }
+        .toolbar input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
+        .toolbar .badge { background: #eef2f6; padding: 4px 12px; border-radius: 20px; font-size: 13px; color: #475569; }
         .table-wrap {
             background: white;
             border-radius: 12px;
@@ -105,9 +72,7 @@
             padding: 10px 14px;
             border-bottom: 1px solid #f1f5f9;
         }
-        tr:hover td {
-            background: #fafbfc;
-        }
+        tr:hover td { background: #fafbfc; }
         .status-badge {
             display: inline-block;
             padding: 2px 10px;
@@ -118,11 +83,7 @@
         .status-badge.completed { background: #dcfce7; color: #166534; }
         .status-badge.pending { background: #fef9c3; color: #854d0e; }
         .status-badge.other { background: #f1f5f9; color: #475569; }
-        .empty {
-            text-align: center;
-            padding: 40px 0;
-            color: #94a3b8;
-        }
+        .empty { text-align: center; padding: 40px 0; color: #94a3b8; }
         .daily-summary {
             margin-top: 20px;
             background: white;
@@ -130,26 +91,15 @@
             border: 1px solid #e9edf2;
             padding: 16px;
         }
-        .daily-summary h3 {
-            font-size: 16px;
-            margin-bottom: 12px;
-        }
-        .daily-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
+        .daily-summary h3 { font-size: 16px; margin-bottom: 12px; }
+        .daily-grid { display: flex; flex-wrap: wrap; gap: 6px; }
         .daily-item {
             background: #f8fafc;
             padding: 6px 12px;
             border-radius: 6px;
             font-size: 13px;
         }
-        .daily-item .amount {
-            font-weight: 600;
-            color: #0f172a;
-            margin-left: 4px;
-        }
+        .daily-item .amount { font-weight: 600; color: #0f172a; margin-left: 4px; }
         .footer {
             margin-top: 24px;
             text-align: center;
@@ -158,12 +108,7 @@
             border-top: 1px solid #e2e8f0;
             padding-top: 16px;
         }
-        .update-time {
-            font-weight: 400;
-            color: #64748b;
-            font-size: 14px;
-            margin-left: 12px;
-        }
+        .update-time { font-weight: 400; color: #64748b; font-size: 14px; margin-left: 12px; }
         @media (max-width: 600px) {
             .stats { grid-template-columns: repeat(2, 1fr); }
             .stat-card .value { font-size: 18px; }
@@ -179,26 +124,34 @@
             <h1>📊 团队订单数据</h1>
             <div class="subtitle">所有订单明细 · 自动同步 <span id="updateTime" class="update-time"></span></div>
         </div>
+        <div style="font-size:13px; color:#64748b; background:#eef2f6; padding:4px 12px; border-radius:20px;">
+            🟢 数据来自 data.json
+        </div>
     </div>
 
+    <!-- 汇总卡片 -->
     <div class="stats" id="statsContainer">
         <div class="stat-card"><div class="label">📦 总订单</div><div class="value" id="totalOrders">-</div></div>
         <div class="stat-card"><div class="label">💰 总收益</div><div class="value" id="totalProfit">-</div></div>
         <div class="stat-card"><div class="label">📤 总上架费</div><div class="value" id="totalFee">-</div></div>
         <div class="stat-card"><div class="label">💵 总交易额</div><div class="value" id="totalAmount">-</div></div>
         <div class="stat-card"><div class="label">👥 参与人数</div><div class="value" id="totalUsers">-</div></div>
+        <div class="stat-card"><div class="label">🏦 可提现佣金</div><div class="value" id="commission">-</div></div>
     </div>
 
+    <!-- 每日收益 -->
     <div class="daily-summary">
         <h3>📅 每日收益</h3>
         <div class="daily-grid" id="dailyGrid">加载中...</div>
     </div>
 
+    <!-- 搜索 -->
     <div class="toolbar">
         <input type="text" id="searchInput" placeholder="🔍 搜索 卖家/买家/单号..." />
         <span class="badge" id="rowCount">0 条</span>
     </div>
 
+    <!-- 表格 -->
     <div class="table-wrap">
         <table>
             <thead>
@@ -227,12 +180,26 @@ async function loadData() {
 
 function fmt(n) { return Number(n).toFixed(2); }
 
-function render(orders) {
-    if (!orders || orders.length === 0) {
-        document.getElementById('tableBody').innerHTML = `<tr><td colspan="8" class="empty">暂无订单数据</td></tr>`;
+function render(data) {
+    if (!data) {
+        document.getElementById('tableBody').innerHTML = `<tr><td colspan="8" class="empty">无法加载数据</td></tr>`;
         return;
     }
 
+    // 处理数据：可能是 { orders: [...] } 或纯数组
+    let orders = [];
+    let summary = {};
+
+    if (Array.isArray(data)) {
+        orders = data;
+    } else if (data.orders) {
+        orders = data.orders;
+        summary = data.summary || {};
+    } else {
+        orders = [];
+    }
+
+    // 更新汇总
     const totalOrders = orders.length;
     const totalProfit = orders.reduce((s, o) => s + (o.收益 || 0), 0);
     const totalFee = orders.reduce((s, o) => s + (o.上架费 || 0), 0);
@@ -245,20 +212,28 @@ function render(orders) {
     document.getElementById('totalFee').innerHTML = fmt(totalFee) + ' <span class="unit">元</span>';
     document.getElementById('totalAmount').innerHTML = fmt(totalAmount) + ' <span class="unit">元</span>';
     document.getElementById('totalUsers').textContent = users.size;
+    document.getElementById('commission').innerHTML = (summary.可提现佣金 || 0).toFixed(2) + ' <span class="unit">元</span>';
     document.getElementById('updateTime').textContent = '更新于 ' + new Date().toLocaleString('zh-CN');
 
+    // 每日收益
     const daily = {};
     orders.forEach(o => {
-        const date = o.交易时间 ? o.交易时间.slice(0,10) : '未知';
+        const date = o.配单时间 ? o.配单时间.slice(0,10) : '未知';
         if (!daily[date]) daily[date] = { profit: 0, count: 0 };
         daily[date].profit += (o.收益 || 0);
         daily[date].count += 1;
     });
     const grid = document.getElementById('dailyGrid');
-    grid.innerHTML = Object.keys(daily).sort().reverse().slice(0,14).map(d => 
-        `<span class="daily-item">${d} <span class="amount">+${fmt(daily[d].profit)}</span></span>`
-    ).join('');
+    const dates = Object.keys(daily).sort().reverse().slice(0,14);
+    if (dates.length === 0) {
+        grid.innerHTML = '<span style="color:#94a3b8;">暂无数据</span>';
+    } else {
+        grid.innerHTML = dates.map(d => 
+            `<span class="daily-item">${d} <span class="amount">+${fmt(daily[d].profit)}</span></span>`
+        ).join('');
+    }
 
+    // 搜索过滤
     const search = document.getElementById('searchInput').value.trim().toLowerCase();
     const filtered = search ? orders.filter(o => 
         (o.卖家||'').toLowerCase().includes(search) ||
@@ -267,11 +242,13 @@ function render(orders) {
     ) : orders;
 
     document.getElementById('rowCount').textContent = filtered.length + ' 条';
+
     const tbody = document.getElementById('tableBody');
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" class="empty">没有匹配的订单</td></tr>`;
         return;
     }
+
     tbody.innerHTML = filtered.map(o => {
         const st = o.状态 || '已完成';
         const cls = st.includes('完成') ? 'completed' : (st.includes('待') ? 'pending' : 'other');
@@ -282,7 +259,7 @@ function render(orders) {
             <td>${o.价格||0}</td>
             <td style="color:#059669;font-weight:500;">${fmt(o.收益||0)}</td>
             <td>${fmt(o.上架费||0)}</td>
-            <td style="font-size:12px;color:#64748b;">${o.交易时间||'-'}</td>
+            <td style="font-size:12px;color:#64748b;">${o.配单时间||'-'}</td>
             <td><span class="status-badge ${cls}">${st}</span></td>
         </tr>`;
     }).join('');
@@ -290,9 +267,8 @@ function render(orders) {
 
 (async function() {
     const data = await loadData();
-    const orders = Array.isArray(data) ? data : (data.orders || []);
-    render(orders);
-    document.getElementById('searchInput').addEventListener('input', () => render(orders));
+    render(data);
+    document.getElementById('searchInput').addEventListener('input', () => render(data));
 })();
 </script>
 </body>
