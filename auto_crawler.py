@@ -125,39 +125,18 @@ def run_crawler():
         summary_text = page.evaluate("() => document.body.innerText")
         
         summary = {}
-        
-        # 可提现佣金
         match = re.search(r'可提现佣金[（(]元[）)]?\s*([\d.]+)', summary_text)
-        if match:
-            summary["可提现佣金"] = float(match.group(1))
-        else:
-            match = re.search(r'我的佣金\s*([\d.]+)', summary_text)
-            summary["可提现佣金"] = float(match.group(1)) if match else 0.0
-        
-        # 已提现佣金
+        summary["可提现佣金"] = float(match.group(1)) if match else 0.0
         match = re.search(r'已提现佣金[（(]元[）)]?\s*([\d.]+)', summary_text)
-        if match:
-            summary["已提现佣金"] = float(match.group(1))
-        else:
-            match = re.search(r'已提现\s*([\d.]+)', summary_text)
-            summary["已提现佣金"] = float(match.group(1)) if match else 0.0
-        
-        # 推广佣金
+        summary["已提现佣金"] = float(match.group(1)) if match else 0.0
         match = re.search(r'推广佣金\s*([\d.]+)', summary_text)
         summary["推广佣金"] = float(match.group(1)) if match else 0.0
-        
-        # 推广订单
         match = re.search(r'推广订单\s*([\d.]+)', summary_text)
         summary["推广订单数"] = int(float(match.group(1))) if match else 0
-        
-        # 推荐人
         match = re.search(r'推荐人[：:]\s*([^\n]+)', summary_text)
         summary["推荐人"] = match.group(1).strip() if match else ""
-        
-        # 邀请码
         match = re.search(r'邀请码[：:]\s*([^\n]+)', summary_text)
         summary["邀请码"] = match.group(1).strip() if match else ""
-        
         print(f"✅ 汇总数据: {summary}")
         
         # ---------- 进入业绩统计 ----------
@@ -188,20 +167,18 @@ def run_crawler():
                 last_height = new_height
             print(f"   滚动高度: {new_height}")
         
-        # 提取订单（从页面文本中提取）
+        # 提取订单
         full_text = page.evaluate("() => document.body.innerText")
         orders = []
-        
         print(f"   📊 页面文本长度: {len(full_text)}")
         
         if "业绩订单" in full_text:
-            # 按订单块分割（每个订单以"单号："开头）
+            # 按订单块分割
             blocks = re.split(r'单号[：:]\s*(\d+)', full_text)
             for i in range(1, len(blocks), 2):
                 order_num = blocks[i]
                 block_text = blocks[i+1] if i+1 < len(blocks) else ""
                 
-                # 提取字段
                 order = {
                     "单号": order_num,
                     "编号": "",
@@ -215,50 +192,50 @@ def run_crawler():
                     "状态": "已完成"
                 }
                 
-                # 编号
+                # 提取编号
                 m = re.search(r'编号[：:]\s*(\d+)', block_text)
-                if m:
-                    order["编号"] = m.group(1)
+                if m: order["编号"] = m.group(1)
                 
-                # 卖家
-                m = re.search(r'卖家[：:]\s*([^\n]+)', block_text)
+                # ★★★ 改进的卖家提取（支持各种换行）★★★
+                m = re.search(r'卖家\s*([^\n]+)', block_text)
                 if m:
-                    order["卖家"] = m.group(1).strip()
+                    seller = m.group(1).strip()
+                    # 如果卖家后面还有“买家”，说明“卖家”和名字在同一行但中间可能有空格
+                    # 实际上 “卖家仙仙” 中间没有冒号，直接跟名字
+                    # 但为了兼容，也保留原有模式
+                    if not seller:
+                        # 尝试第二种模式：卖家：xxx
+                        m2 = re.search(r'卖家[：:]\s*([^\n]+)', block_text)
+                        if m2: seller = m2.group(1).strip()
+                    order["卖家"] = seller
                 
-                # 买家
-                m = re.search(r'买家[：:]\s*([^\n]+)', block_text)
+                # ★★★ 改进的买家提取 ★★★
+                m = re.search(r'买家\s*([^\n]+)', block_text)
                 if m:
-                    order["买家"] = m.group(1).strip()
+                    buyer = m.group(1).strip()
+                    if not buyer:
+                        m2 = re.search(r'买家[：:]\s*([^\n]+)', block_text)
+                        if m2: buyer = m2.group(1).strip()
+                    order["买家"] = buyer
                 
                 # 价格
                 m = re.search(r'价格[：:]\s*([\d.]+)', block_text)
-                if m:
-                    order["价格"] = float(m.group(1))
-                
+                if m: order["价格"] = float(m.group(1))
                 # 收益
                 m = re.search(r'收益[：:]\s*([\d.]+)', block_text)
-                if m:
-                    order["收益"] = float(m.group(1))
-                
+                if m: order["收益"] = float(m.group(1))
                 # 上架费
                 m = re.search(r'上架费[：:]\s*([\d.]+)', block_text)
-                if m:
-                    order["上架费"] = float(m.group(1))
-                
+                if m: order["上架费"] = float(m.group(1))
                 # 配单时间
                 m = re.search(r'配单时间[：:]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', block_text)
-                if m:
-                    order["配单时间"] = m.group(1)
-                
+                if m: order["配单时间"] = m.group(1)
                 # 支付时间
                 m = re.search(r'支付时间[：:]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', block_text)
-                if m:
-                    order["支付时间"] = m.group(1)
-                
+                if m: order["支付时间"] = m.group(1)
                 # 状态
                 m = re.search(r'(订单完成|待付款|待收款|待上架)', block_text)
-                if m:
-                    order["状态"] = m.group(1)
+                if m: order["状态"] = m.group(1)
                 
                 orders.append(order)
         else:
