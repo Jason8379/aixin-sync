@@ -36,79 +36,121 @@ def run_crawler():
         page = context.new_page()
         
         print(f"🌐 访问登录页: {TARGET_URL}")
-        page.goto(TARGET_URL, wait_until="networkidle")
-        page.wait_for_timeout(4000)
+        page.goto(TARGET_URL, wait_until="networkidle", timeout=60000)
+        page.wait_for_timeout(5000)
         
-        # ---------- 防火墙 ----------
+        # ---------- 防火墙（重试机制） ----------
         print("🛡️ 处理防火墙...")
-        try:
-            page.wait_for_selector("input", timeout=8000)
-            inputs = page.locator("input").all()
-            visible_inputs = [i for i in inputs if i.is_visible()]
-            if len(visible_inputs) >= 2:
-                visible_inputs[0].fill(FIREWALL_USER)
-                visible_inputs[1].fill(FIREWALL_PWD)
-                page.keyboard.press("Enter")
-                print("✅ 防火墙凭证已提交 (9999/8888)")
-                page.wait_for_timeout(5000)
-        except Exception as e:
-            print(f"⚠️ 防火墙步骤跳过: {e}")
+        firewall_success = False
+        for attempt in range(3):
+            try:
+                # 等待输入框出现（增加超时到 15 秒）
+                page.wait_for_selector("input", timeout=15000)
+                inputs = page.locator("input").all()
+                visible_inputs = [i for i in inputs if i.is_visible()]
+                print(f"   第 {attempt+1} 次尝试，找到 {len(visible_inputs)} 个输入框")
+                
+                if len(visible_inputs) >= 2:
+                    visible_inputs[0].fill(FIREWALL_USER)
+                    visible_inputs[1].fill(FIREWALL_PWD)
+                    # 点击登录按钮
+                    login_btn = page.locator("button:has-text('登录')")
+                    if login_btn.count() > 0:
+                        login_btn.click()
+                    else:
+                        page.keyboard.press("Enter")
+                    print("✅ 防火墙凭证已提交 (9999/8888)")
+                    page.wait_for_timeout(5000)
+                    firewall_success = True
+                    break
+                else:
+                    print(f"   ⚠️ 输入框数量不足，重试...")
+                    page.wait_for_timeout(2000)
+            except Exception as e:
+                print(f"   ⚠️ 防火墙尝试 {attempt+1} 失败: {e}")
+                page.wait_for_timeout(2000)
+                # 如果超时，尝试刷新页面
+                if attempt < 2:
+                    page.reload()
+                    page.wait_for_timeout(3000)
         
-        # ---------- 系统登录 ----------
-        print("🔑 处理系统登录...")
-        try:
-            page.wait_for_selector("input", timeout=10000)
-            inputs = page.locator("input").all()
-            visible_inputs = [i for i in inputs if i.is_visible()]
-            print(f"   找到 {len(visible_inputs)} 个可见输入框")
-            
-            if len(visible_inputs) >= 3:
-                visible_inputs[0].click()
-                visible_inputs[0].fill(SYS_USER)
-                print(f"   ✅ 填了账号: {SYS_USER}")
-                visible_inputs[1].click()
-                visible_inputs[1].fill(SYS_PWD)
-                print(f"   ✅ 填了密码: {SYS_PWD}")
-                visible_inputs[2].click()
-                visible_inputs[2].fill(STORE_NAME)
-                print(f"   ✅ 填了店铺号: {STORE_NAME}")
-            
-            login_btn = page.locator("button:has-text('立即登录')")
-            if login_btn.count() > 0:
-                login_btn.click()
-                print("   ✅ 点击了'立即登录'按钮")
-            else:
-                page.click("text=立即登录")
-                print("   ✅ 用文本点击了'立即登录'")
-            
-            print("⏳ 等待登录完成...")
-            page.wait_for_timeout(10000)
-            
-        except Exception as e:
-            print(f"❌ 登录操作失败: {e}")
+        if not firewall_success:
+            print("❌ 防火墙认证失败，退出")
             browser.close()
+            error_data = {"error": "firewall_failed", "timestamp": time.time()}
+            with open(DATA_FILE, "w", encoding="utf-8") as f:
+                json.dump(error_data, f, ensure_ascii=False, indent=2)
             return
         
-        # ---------- 验证登录 ----------
-        print("🔍 验证登录状态...")
-        current_url = page.url
-        page_text = page.evaluate("() => document.body.innerText")
-        print(f"   当前URL: {current_url}")
+        # ---------- 系统登录（重试机制） ----------
+        print("🔑 处理系统登录...")
+        login_success = False
+        for attempt in range(3):
+            try:
+                page.wait_for_selector("input", timeout=15000)
+                inputs = page.locator("input").all()
+                visible_inputs = [i for i in inputs if i.is_visible()]
+                print(f"   第 {attempt+1} 次尝试，找到 {len(visible_inputs)} 个输入框")
+                
+                if len(visible_inputs) >= 3:
+                    visible_inputs[0].click()
+                    visible_inputs[0].fill(SYS_USER)
+                    print(f"   ✅ 填了账号: {SYS_USER}")
+                    visible_inputs[1].click()
+                    visible_inputs[1].fill(SYS_PWD)
+                    print(f"   ✅ 填了密码: {SYS_PWD}")
+                    visible_inputs[2].click()
+                    visible_inputs[2].fill(STORE_NAME)
+                    print(f"   ✅ 填了店铺号: {STORE_NAME}")
+                elif len(visible_inputs) >= 2:
+                    visible_inputs[0].fill(SYS_USER)
+                    visible_inputs[1].fill(SYS_PWD)
+                    print(f"   ✅ 填了账号+密码")
+                else:
+                    print(f"   ⚠️ 输入框数量不足，重试...")
+                    page.wait_for_timeout(2000)
+                    continue
+                
+                # 点击登录
+                login_btn = page.locator("button:has-text('立即登录')")
+                if login_btn.count() > 0:
+                    login_btn.click()
+                    print("   ✅ 点击了'立即登录'按钮")
+                else:
+                    page.click("text=立即登录")
+                    print("   ✅ 用文本点击了'立即登录'")
+                
+                print("⏳ 等待登录完成...")
+                page.wait_for_timeout(10000)
+                
+                # 验证是否登录成功
+                current_url = page.url
+                page_text = page.evaluate("() => document.body.innerText")
+                if "没有账号" in page_text and "立即登录" in page_text:
+                    print(f"   ⚠️ 第 {attempt+1} 次登录失败，仍在登录页")
+                    page.wait_for_timeout(2000)
+                    continue
+                else:
+                    print(f"✅ 登录成功，当前URL: {current_url}")
+                    login_success = True
+                    break
+                    
+            except Exception as e:
+                print(f"   ⚠️ 登录尝试 {attempt+1} 失败: {e}")
+                page.wait_for_timeout(2000)
         
-        if "没有账号" in page_text and "立即登录" in page_text:
-            print("❌ 登录失败，仍在登录页面")
+        if not login_success:
+            print("❌ 系统登录失败，退出")
             browser.close()
             error_data = {"error": "login_failed", "timestamp": time.time()}
             with open(DATA_FILE, "w", encoding="utf-8") as f:
                 json.dump(error_data, f, ensure_ascii=False, indent=2)
             return
-        else:
-            print("✅ 登录成功，已进入系统")
         
         # ---------- 进入记账中心 ----------
         print("📊 进入记账中心...")
         try:
-            page.wait_for_selector(".cu-bar.tabbar .action", timeout=15000)
+            page.wait_for_selector(".cu-bar.tabbar .action", timeout=20000)
             tabs = page.locator(".cu-bar.tabbar .action").all()
             print(f"   找到 {len(tabs)} 个导航项")
             if len(tabs) >= 3:
@@ -142,7 +184,7 @@ def run_crawler():
         # ---------- 进入业绩统计 ----------
         print("📈 进入业绩统计...")
         try:
-            page.click("text=业绩统计", timeout=3000)
+            page.click("text=业绩统计", timeout=5000)
             print("   ✅ 点击了业绩统计")
             page.wait_for_timeout(3000)
         except:
@@ -167,7 +209,7 @@ def run_crawler():
                 last_height = new_height
             print(f"   滚动高度: {new_height}")
         
-        # ---------- 提取订单（修正卖家/买家提取） ----------
+        # ---------- 提取订单 ----------
         full_text = page.evaluate("() => document.body.innerText")
         orders = []
         
@@ -176,7 +218,6 @@ def run_crawler():
         if "业绩订单" not in full_text:
             print("   ⚠️ 未找到'业绩订单'，可能今日无数据")
         else:
-            # 按订单块分割（每个订单以"单号："开头）
             blocks = re.split(r'单号[：:]\s*(\d+)', full_text)
             print(f"   📦 找到 {len(blocks)//2} 个订单块")
             
@@ -197,20 +238,16 @@ def run_crawler():
                     "状态": "已完成"
                 }
                 
-                # 编号
                 m = re.search(r'编号[：:]\s*(\d+)', block_text)
                 if m: order["编号"] = m.group(1)
                 
-                # ★★★ 卖家（修正：匹配 "卖家" 后面的内容）★★★
                 m = re.search(r'卖家[：:]\s*([^\n]+)', block_text)
                 if m:
                     seller = m.group(1).strip()
-                    # 如果卖家包含特殊字符，清洗一下
                     seller = re.sub(r'[^\w\u4e00-\u9fa5]', '', seller)
                     if seller:
                         order["卖家"] = seller
                 
-                # ★★★ 买家（修正：匹配 "买家" 后面的内容）★★★
                 m = re.search(r'买家[：:]\s*([^\n]+)', block_text)
                 if m:
                     buyer = m.group(1).strip()
@@ -218,27 +255,21 @@ def run_crawler():
                     if buyer:
                         order["买家"] = buyer
                 
-                # 价格
                 m = re.search(r'价格[：:]\s*([\d.]+)', block_text)
                 if m: order["价格"] = float(m.group(1))
                 
-                # 收益
                 m = re.search(r'收益[：:]\s*([\d.]+)', block_text)
                 if m: order["收益"] = float(m.group(1))
                 
-                # 上架费
                 m = re.search(r'上架费[：:]\s*([\d.]+)', block_text)
                 if m: order["上架费"] = float(m.group(1))
                 
-                # 配单时间
                 m = re.search(r'配单时间[：:]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', block_text)
                 if m: order["配单时间"] = m.group(1)
                 
-                # 支付时间
                 m = re.search(r'支付时间[：:]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', block_text)
                 if m: order["支付时间"] = m.group(1)
                 
-                # 状态
                 m = re.search(r'(订单完成|待付款|待收款|待上架)', block_text)
                 if m: order["状态"] = m.group(1)
                 
@@ -246,7 +277,7 @@ def run_crawler():
         
         print(f"✅ 提取 {len(orders)} 条订单")
         
-        # ---------- 合并历史数据（去重） ----------
+        # ---------- 合并历史数据 ----------
         result = {
             "summary": summary,
             "orders": orders,
