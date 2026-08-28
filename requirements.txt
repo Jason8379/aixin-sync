@@ -1,2 +1,1 @@
-requests
-playwright
+playwright==1.40.0
