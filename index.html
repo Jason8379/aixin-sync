@@ -37,7 +37,14 @@
             margin-bottom: 16px;
             align-items: center;
         }
-        .toolbar input {
+        .toolbar input[type="date"] {
+            padding: 8px 14px;
+            border: 1px solid #d1d9e6;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+        }
+        .toolbar input[type="text"] {
             flex: 1 1 200px;
             padding: 8px 14px;
             border: 1px solid #d1d9e6;
@@ -53,6 +60,8 @@
             border-radius: 12px;
             border: 1px solid #e9edf2;
             overflow-x: auto;
+            max-height: 600px;
+            overflow-y: auto;
         }
         table {
             width: 100%;
@@ -101,7 +110,9 @@
             padding: 6px 12px;
             border-radius: 6px;
             font-size: 13px;
+            cursor: pointer;
         }
+        .daily-item:hover { background: #e2e8f0; }
         .daily-item .amount { font-weight: 600; color: #0f172a; margin-left: 4px; }
         .footer {
             margin-top: 24px;
@@ -114,12 +125,26 @@
         .update-time { font-weight: 400; color: #64748b; font-size: 14px; margin-left: 12px; }
         .text-muted { color: #64748b; font-size: 12px; }
         .highlight-profit { color: #059669; font-weight: 500; }
+        .highlight-seller { color: #2563eb; font-weight: 600; }
+        .highlight-buyer { color: #7c3aed; font-weight: 600; }
+        .date-filter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #e9edf2;
+        }
+        .date-filter label { font-weight: 500; color: #475569; }
         @media (max-width: 600px) {
             .stats { grid-template-columns: repeat(2, 1fr); }
             .stat-card .value { font-size: 18px; }
             table { font-size: 12px; min-width: 500px; }
             th, td { padding: 6px 8px; }
+            .date-filter { flex-wrap: wrap; }
         }
+        .selected-date { background: #dbeafe; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -134,6 +159,18 @@
         </div>
     </div>
 
+    <!-- 日期筛选器 -->
+    <div class="toolbar">
+        <div class="date-filter">
+            <label for="datePicker">📅 选择日期：</label>
+            <input type="date" id="datePicker" />
+            <button id="todayBtn" style="padding:6px 16px; border:1px solid #d1d9e6; border-radius:8px; background:white; cursor:pointer;">今天</button>
+            <button id="allBtn" style="padding:6px 16px; border:1px solid #d1d9e6; border-radius:8px; background:white; cursor:pointer;">全部</button>
+        </div>
+        <input type="text" id="searchInput" placeholder="🔍 搜索 单号/卖家/买家..." style="flex:1; min-width:150px;" />
+        <span class="badge" id="rowCount">0 条</span>
+    </div>
+
     <!-- 汇总卡片 -->
     <div class="stats" id="statsContainer">
         <div class="stat-card"><div class="label">📦 总订单</div><div class="value" id="totalOrders">-</div></div>
@@ -144,16 +181,10 @@
         <div class="stat-card"><div class="label">🏦 已提现佣金</div><div class="value" id="commission">-</div></div>
     </div>
 
-    <!-- 每日收益 -->
+    <!-- 每日收益（点击可快速过滤） -->
     <div class="daily-summary">
-        <h3>📅 每日收益</h3>
+        <h3>📅 每日收益（点击日期可筛选）</h3>
         <div class="daily-grid" id="dailyGrid">加载中...</div>
-    </div>
-
-    <!-- 搜索 -->
-    <div class="toolbar">
-        <input type="text" id="searchInput" placeholder="🔍 搜索 卖家/买家/单号..." />
-        <span class="badge" id="rowCount">0 条</span>
     </div>
 
     <!-- 表格 -->
@@ -181,6 +212,9 @@
 </div>
 
 <script>
+let allOrders = [];
+let currentDate = null; // null表示全部
+
 async function loadData() {
     try {
         const res = await fetch('data.json?t=' + Date.now());
@@ -194,7 +228,15 @@ async function loadData() {
 
 function fmt(n) { return Number(n).toFixed(2); }
 
-function render(data) {
+function getTodayStr() {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function render(data, selectedDate) {
     if (!data) {
         document.getElementById('tableBody').innerHTML = `<tr><td colspan="8" class="empty">无法加载数据</td></tr>`;
         return;
@@ -214,14 +256,32 @@ function render(data) {
 
     if (!Array.isArray(orders)) orders = [];
 
-    // 统计
-    const totalOrders = orders.length;
-    const totalProfit = orders.reduce((s, o) => s + Number(o.收益 || 0), 0);
-    const totalFee = orders.reduce((s, o) => s + Number(o.上架费 || 0), 0);
-    const totalAmount = orders.reduce((s, o) => s + Number(o.价格 || 0), 0);
+    // ★★★ 按配单时间降序排序（最新的在前）★★★
+    orders = orders.sort((a, b) => {
+        const timeA = a.配单时间 || '1970-01-01 00:00:00';
+        const timeB = b.配单时间 || '1970-01-01 00:00:00';
+        return timeB.localeCompare(timeA);
+    });
+
+    allOrders = orders; // 保存全量数据
+
+    // 根据日期筛选
+    let filteredOrders = orders;
+    if (selectedDate) {
+        filteredOrders = orders.filter(o => {
+            const date = o.配单时间 ? o.配单时间.slice(0,10) : '';
+            return date === selectedDate;
+        });
+    }
+
+    // 统计（基于筛选后的数据）
+    const totalOrders = filteredOrders.length;
+    const totalProfit = filteredOrders.reduce((s, o) => s + Number(o.收益 || 0), 0);
+    const totalFee = filteredOrders.reduce((s, o) => s + Number(o.上架费 || 0), 0);
+    const totalAmount = filteredOrders.reduce((s, o) => s + Number(o.价格 || 0), 0);
     
     const users = new Set();
-    orders.forEach(o => {
+    filteredOrders.forEach(o => {
         if (o.卖家 && o.卖家.trim()) users.add(o.卖家.trim());
         if (o.买家 && o.买家.trim()) users.add(o.买家.trim());
     });
@@ -237,7 +297,7 @@ function render(data) {
     
     document.getElementById('updateTime').textContent = '更新于 ' + new Date().toLocaleString('zh-CN');
 
-    // 每日收益
+    // 每日收益（全部数据，不受筛选影响）
     const daily = {};
     orders.forEach(o => {
         const date = o.配单时间 ? o.配单时间.slice(0,10) : '未知';
@@ -246,40 +306,60 @@ function render(data) {
         daily[date].count += 1;
     });
     const grid = document.getElementById('dailyGrid');
-    const dates = Object.keys(daily).sort().reverse().slice(0,14);
+    const dates = Object.keys(daily).sort().reverse();
     if (dates.length === 0) {
         grid.innerHTML = '<span style="color:#94a3b8;">暂无数据</span>';
     } else {
-        grid.innerHTML = dates.map(d => 
-            `<span class="daily-item">${d} <span class="amount">+${fmt(daily[d].profit)}</span></span>`
-        ).join('');
+        grid.innerHTML = dates.map(d => {
+            const isActive = (selectedDate === d);
+            return `<span class="daily-item ${isActive ? 'selected-date' : ''}" data-date="${d}">
+                ${d} <span class="amount">+${fmt(daily[d].profit)} (${daily[d].count}单)</span>
+            </span>`;
+        }).join('');
+        // 绑定点击事件
+        grid.querySelectorAll('.daily-item').forEach(el => {
+            el.addEventListener('click', function() {
+                const date = this.dataset.date;
+                document.getElementById('datePicker').value = date;
+                currentDate = date;
+                render(data, date);
+            });
+        });
     }
 
-    // 搜索过滤
+    // 搜索过滤（基于当前筛选后的数据）
     const search = document.getElementById('searchInput').value.trim().toLowerCase();
-    const filtered = search ? orders.filter(o => {
-        return (o.卖家 || '').toLowerCase().includes(search) ||
-               (o.买家 || '').toLowerCase().includes(search) ||
-               (o.单号 || '').includes(search);
-    }) : orders;
+    let displayOrders = filteredOrders;
+    if (search) {
+        displayOrders = filteredOrders.filter(o => {
+            return (o.单号 || '').includes(search) ||
+                   (o.卖家 || '').toLowerCase().includes(search) ||
+                   (o.买家 || '').toLowerCase().includes(search);
+        });
+    }
 
-    document.getElementById('rowCount').textContent = filtered.length + ' 条';
+    document.getElementById('rowCount').textContent = displayOrders.length + ' 条';
 
     const tbody = document.getElementById('tableBody');
-    if (filtered.length === 0) {
+    if (displayOrders.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" class="empty">没有匹配的订单</td></tr>`;
         return;
     }
 
-    tbody.innerHTML = filtered.map(o => {
+    // 只显示前100条
+    const slice = displayOrders.slice(0, 100);
+
+    tbody.innerHTML = slice.map(o => {
         const st = o.状态 || '已完成';
         let cls = 'other';
         if (st.includes('完成')) cls = 'completed';
         else if (st.includes('待')) cls = 'pending';
+        const seller = o.卖家 && o.卖家.trim() ? o.卖家 : '-';
+        const buyer = o.买家 && o.买家.trim() ? o.买家 : '-';
         return `<tr>
             <td style="font-size:12px;font-family:monospace;">${o.单号 || '-'}</td>
-            <td><strong>${o.卖家 || '-'}</strong></td>
-            <td><strong>${o.买家 || '-'}</strong></td>
+            <td class="highlight-seller">${seller}</td>
+            <td class="highlight-buyer">${buyer}</td>
             <td>${Number(o.价格 || 0).toFixed(0)}</td>
             <td class="highlight-profit">${fmt(Number(o.收益 || 0))}</td>
             <td>${fmt(Number(o.上架费 || 0))}</td>
@@ -291,8 +371,40 @@ function render(data) {
 
 (async function() {
     const data = await loadData();
-    render(data);
-    document.getElementById('searchInput').addEventListener('input', () => render(data));
+    if (!data) return;
+
+    // 默认显示今天
+    const today = getTodayStr();
+    document.getElementById('datePicker').value = today;
+    currentDate = today;
+    render(data, today);
+
+    // 事件：日期选择变化
+    document.getElementById('datePicker').addEventListener('change', function() {
+        const val = this.value;
+        currentDate = val || null;
+        render(data, currentDate);
+    });
+
+    // 事件：点击“今天”
+    document.getElementById('todayBtn').addEventListener('click', function() {
+        const today = getTodayStr();
+        document.getElementById('datePicker').value = today;
+        currentDate = today;
+        render(data, today);
+    });
+
+    // 事件：点击“全部”
+    document.getElementById('allBtn').addEventListener('click', function() {
+        document.getElementById('datePicker').value = '';
+        currentDate = null;
+        render(data, null);
+    });
+
+    // 事件：搜索
+    document.getElementById('searchInput').addEventListener('input', function() {
+        render(data, currentDate);
+    });
 })();
 </script>
 </body>
