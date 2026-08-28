@@ -112,14 +112,14 @@
             padding-top: 16px;
         }
         .update-time { font-weight: 400; color: #64748b; font-size: 14px; margin-left: 12px; }
+        .text-muted { color: #64748b; font-size: 12px; }
+        .highlight-profit { color: #059669; font-weight: 500; }
         @media (max-width: 600px) {
             .stats { grid-template-columns: repeat(2, 1fr); }
             .stat-card .value { font-size: 18px; }
             table { font-size: 12px; min-width: 500px; }
             th, td { padding: 6px 8px; }
         }
-        .highlight-profit { color: #059669; font-weight: 500; }
-        .text-muted { color: #64748b; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -185,9 +185,7 @@ async function loadData() {
     try {
         const res = await fetch('data.json?t=' + Date.now());
         if (!res.ok) throw new Error('无法获取数据');
-        const raw = await res.json();
-        console.log('📦 加载到的原始数据:', raw);
-        return raw;
+        return await res.json();
     } catch (e) {
         console.error('加载失败:', e);
         return null;
@@ -202,46 +200,30 @@ function render(data) {
         return;
     }
 
-    // 兼容多种数据格式
     let orders = [];
     let summary = {};
 
     if (Array.isArray(data)) {
         orders = data;
-    } else if (data.orders && Array.isArray(data.orders)) {
+    } else if (data.orders) {
         orders = data.orders;
         summary = data.summary || {};
     } else {
-        // 尝试从 data 中找 orders 字段
-        for (let key in data) {
-            if (Array.isArray(data[key]) && data[key].length > 0 && data[key][0].单号) {
-                orders = data[key];
-                break;
-            }
-        }
+        orders = [];
     }
 
-    // 确保 orders 是数组
     if (!Array.isArray(orders)) orders = [];
-
-    // 打印第一条订单，查看字段
-    if (orders.length > 0) {
-        console.log('📋 第一条订单示例:', orders[0]);
-        console.log('📋 所有字段:', Object.keys(orders[0]));
-    }
 
     // 统计
     const totalOrders = orders.length;
-    const totalProfit = orders.reduce((s, o) => s + Number(o.收益 || o.profit || 0), 0);
-    const totalFee = orders.reduce((s, o) => s + Number(o.上架费 || o.fee || 0), 0);
-    const totalAmount = orders.reduce((s, o) => s + Number(o.价格 || o.price || 0), 0);
-
+    const totalProfit = orders.reduce((s, o) => s + Number(o.收益 || 0), 0);
+    const totalFee = orders.reduce((s, o) => s + Number(o.上架费 || 0), 0);
+    const totalAmount = orders.reduce((s, o) => s + Number(o.价格 || 0), 0);
+    
     const users = new Set();
     orders.forEach(o => {
-        const seller = o.卖家 || o.seller || '';
-        const buyer = o.买家 || o.buyer || '';
-        if (seller.trim()) users.add(seller.trim());
-        if (buyer.trim()) users.add(buyer.trim());
+        if (o.卖家 && o.卖家.trim()) users.add(o.卖家.trim());
+        if (o.买家 && o.买家.trim()) users.add(o.买家.trim());
     });
 
     document.getElementById('totalOrders').textContent = totalOrders;
@@ -250,7 +232,7 @@ function render(data) {
     document.getElementById('totalAmount').innerHTML = fmt(totalAmount) + ' <span class="unit">元</span>';
     document.getElementById('totalUsers').textContent = users.size;
     
-    const withdrawn = summary.已提现佣金 || summary.withdrawn || 0;
+    const withdrawn = summary.已提现佣金 || 0;
     document.getElementById('commission').innerHTML = fmt(withdrawn) + ' <span class="unit">元</span>';
     
     document.getElementById('updateTime').textContent = '更新于 ' + new Date().toLocaleString('zh-CN');
@@ -258,10 +240,9 @@ function render(data) {
     // 每日收益
     const daily = {};
     orders.forEach(o => {
-        const time = o.配单时间 || o.time || '';
-        const date = time ? time.slice(0,10) : '未知';
+        const date = o.配单时间 ? o.配单时间.slice(0,10) : '未知';
         if (!daily[date]) daily[date] = { profit: 0, count: 0 };
-        daily[date].profit += Number(o.收益 || o.profit || 0);
+        daily[date].profit += Number(o.收益 || 0);
         daily[date].count += 1;
     });
     const grid = document.getElementById('dailyGrid');
@@ -277,10 +258,9 @@ function render(data) {
     // 搜索过滤
     const search = document.getElementById('searchInput').value.trim().toLowerCase();
     const filtered = search ? orders.filter(o => {
-        const seller = (o.卖家 || o.seller || '').toLowerCase();
-        const buyer = (o.买家 || o.buyer || '').toLowerCase();
-        const orderNum = (o.单号 || o.order_id || '').toLowerCase();
-        return seller.includes(search) || buyer.includes(search) || orderNum.includes(search);
+        return (o.卖家 || '').toLowerCase().includes(search) ||
+               (o.买家 || '').toLowerCase().includes(search) ||
+               (o.单号 || '').includes(search);
     }) : orders;
 
     document.getElementById('rowCount').textContent = filtered.length + ' 条';
@@ -292,28 +272,19 @@ function render(data) {
     }
 
     tbody.innerHTML = filtered.map(o => {
-        const status = o.状态 || o.status || '已完成';
+        const st = o.状态 || '已完成';
         let cls = 'other';
-        if (status.includes('完成')) cls = 'completed';
-        else if (status.includes('待')) cls = 'pending';
-        
-        const seller = o.卖家 || o.seller || '-';
-        const buyer = o.买家 || o.buyer || '-';
-        const price = Number(o.价格 || o.price || 0);
-        const profit = Number(o.收益 || o.profit || 0);
-        const fee = Number(o.上架费 || o.fee || 0);
-        const time = o.配单时间 || o.time || '-';
-        const orderNum = o.单号 || o.order_id || '-';
-
+        if (st.includes('完成')) cls = 'completed';
+        else if (st.includes('待')) cls = 'pending';
         return `<tr>
-            <td style="font-size:12px;font-family:monospace;">${orderNum}</td>
-            <td><strong>${seller}</strong></td>
-            <td><strong>${buyer}</strong></td>
-            <td>${price.toFixed(0)}</td>
-            <td class="highlight-profit">${fmt(profit)}</td>
-            <td>${fmt(fee)}</td>
-            <td class="text-muted">${time}</td>
-            <td><span class="status-badge ${cls}">${status}</span></td>
+            <td style="font-size:12px;font-family:monospace;">${o.单号 || '-'}</td>
+            <td><strong>${o.卖家 || '-'}</strong></td>
+            <td><strong>${o.买家 || '-'}</strong></td>
+            <td>${Number(o.价格 || 0).toFixed(0)}</td>
+            <td class="highlight-profit">${fmt(Number(o.收益 || 0))}</td>
+            <td>${fmt(Number(o.上架费 || 0))}</td>
+            <td class="text-muted">${o.配单时间 || '-'}</td>
+            <td><span class="status-badge ${cls}">${st}</span></td>
         </tr>`;
     }).join('');
 }
