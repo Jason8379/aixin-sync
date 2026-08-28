@@ -3,7 +3,7 @@ name: 爱心事业云端自动抓取同步
 on:
   workflow_dispatch:
   schedule:
-    # 北京时间每周三至周日 6:00，对应 UTC 时间 22:00（周二至周六）
+    # 北京时间每周三至周日 6:00
     - cron: '0 22 * * 2-6'
 
 permissions:
