@@ -36,70 +36,146 @@ def run_crawler():
         page = context.new_page()
         
         print(f"🌐 访问登录页: {TARGET_URL}")
-        page.goto(TARGET_URL, wait_until="networkidle", timeout=60000)
-        page.wait_for_timeout(5000)
+        try:
+            page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
+        except Exception as e:
+            print(f"⚠️ 页面加载超时: {e}")
+            page.goto(TARGET_URL, wait_until="commit", timeout=60000)
         
-        # ---------- 防火墙（重试机制） ----------
-        print("🛡️ 处理防火墙...")
-        firewall_success = False
-        for attempt in range(3):
+        # 强制等待页面渲染
+        print("⏳ 等待页面渲染...")
+        page.wait_for_timeout(10000)
+        
+        # ---------- 打印当前页面信息 ----------
+        current_url = page.url
+        page_title = page.title()
+        print(f"📍 当前URL: {current_url}")
+        print(f"📄 页面标题: {page_title}")
+        
+        # 截图保存到仓库（方便诊断）
+        screenshot_path = "debug_screenshot.png"
+        page.screenshot(path=screenshot_path, full_page=False)
+        print(f"📸 已保存截图: {screenshot_path}")
+        
+        # 获取页面文本内容
+        page_text = page.evaluate("() => document.body.innerText")
+        print(f"📝 页面文本预览: {page_text[:300]}...")
+        
+        # ---------- 检查当前是否已经在登录页（没有防火墙） ----------
+        if "请输入账号" in page_text or "请输入密码" in page_text:
+            print("✅ 已直接进入登录页，无需防火墙认证")
+        else:
+            # ---------- 处理防火墙 ----------
+            print("🛡️ 检测到防火墙页面，开始处理...")
+            firewall_success = False
+            
+            for attempt in range(5):
+                try:
+                    # 获取所有输入框
+                    inputs = page.locator("input").all()
+                    visible_inputs = [i for i in inputs if i.is_visible()]
+                    print(f"   第 {attempt+1} 次尝试，找到 {len(visible_inputs)} 个可见输入框")
+                    
+                    # 打印输入框信息
+                    for idx, inp in enumerate(visible_inputs):
+                        try:
+                            placeholder = inp.get_attribute("placeholder") or ""
+                            value = inp.get_attribute("value") or ""
+                            print(f"      输入框{idx}: placeholder='{placeholder}', value='{value[:10]}'")
+                        except:
+                            pass
+                    
+                    if len(visible_inputs) >= 2:
+                        # 填写防火墙账号密码
+                        visible_inputs[0].click()
+                        visible_inputs[0].fill("")
+                        visible_inputs[0].fill(FIREWALL_USER)
+                        print(f"   ✅ 填了防火墙账号: {FIREWALL_USER}")
+                        
+                        visible_inputs[1].click()
+                        visible_inputs[1].fill("")
+                        visible_inputs[1].fill(FIREWALL_PWD)
+                        print(f"   ✅ 填了防火墙密码: {FIREWALL_PWD}")
+                        
+                        # 点击登录按钮
+                        login_btn = page.locator("button:has-text('登录')")
+                        if login_btn.count() > 0:
+                            login_btn.click()
+                            print("   ✅ 点击了防火墙'登录'按钮")
+                        else:
+                            page.keyboard.press("Enter")
+                            print("   ✅ 按回车提交")
+                        
+                        # 等待跳转
+                        page.wait_for_timeout(8000)
+                        
+                        # 检查是否通过防火墙
+                        after_text = page.evaluate("() => document.body.innerText")
+                        if "请输入账号" in after_text or "请输入密码" in after_text:
+                            print("   ✅ 防火墙认证成功，已进入登录页")
+                            firewall_success = True
+                            break
+                        elif "SafeLine" not in after_text and "防火墙" not in after_text:
+                            print("   ✅ 防火墙已通过")
+                            firewall_success = True
+                            break
+                        else:
+                            print(f"   ⚠️ 防火墙可能未通过，重试...")
+                            page.wait_for_timeout(3000)
+                    else:
+                        print(f"   ⚠️ 输入框数量不足（{len(visible_inputs)}），等待后重试...")
+                        page.wait_for_timeout(5000)
+                        page.reload()
+                        page.wait_for_timeout(5000)
+                        
+                except Exception as e:
+                    print(f"   ⚠️ 防火墙尝试 {attempt+1} 失败: {e}")
+                    page.wait_for_timeout(3000)
+            
+            if not firewall_success:
+                print("❌ 防火墙认证失败")
+                # 截图保存失败状态
+                page.screenshot(path="firewall_failed.png")
+                browser.close()
+                error_data = {"error": "firewall_failed", "timestamp": time.time()}
+                with open(DATA_FILE, "w", encoding="utf-8") as f:
+                    json.dump(error_data, f, ensure_ascii=False, indent=2)
+                return
+        
+        # ---------- 系统登录 ----------
+        print("🔑 开始系统登录...")
+        login_success = False
+        
+        for attempt in range(5):
             try:
-                # 等待输入框出现（增加超时到 15 秒）
-                page.wait_for_selector("input", timeout=15000)
+                # 等待输入框出现
+                page.wait_for_selector("input", timeout=20000)
                 inputs = page.locator("input").all()
                 visible_inputs = [i for i in inputs if i.is_visible()]
                 print(f"   第 {attempt+1} 次尝试，找到 {len(visible_inputs)} 个输入框")
                 
-                if len(visible_inputs) >= 2:
-                    visible_inputs[0].fill(FIREWALL_USER)
-                    visible_inputs[1].fill(FIREWALL_PWD)
-                    # 点击登录按钮
-                    login_btn = page.locator("button:has-text('登录')")
-                    if login_btn.count() > 0:
-                        login_btn.click()
-                    else:
-                        page.keyboard.press("Enter")
-                    print("✅ 防火墙凭证已提交 (9999/8888)")
-                    page.wait_for_timeout(5000)
-                    firewall_success = True
-                    break
-                else:
-                    print(f"   ⚠️ 输入框数量不足，重试...")
-                    page.wait_for_timeout(2000)
-            except Exception as e:
-                print(f"   ⚠️ 防火墙尝试 {attempt+1} 失败: {e}")
-                page.wait_for_timeout(2000)
-                # 如果超时，尝试刷新页面
-                if attempt < 2:
-                    page.reload()
-                    page.wait_for_timeout(3000)
-        
-        if not firewall_success:
-            print("❌ 防火墙认证失败，退出")
-            browser.close()
-            error_data = {"error": "firewall_failed", "timestamp": time.time()}
-            with open(DATA_FILE, "w", encoding="utf-8") as f:
-                json.dump(error_data, f, ensure_ascii=False, indent=2)
-            return
-        
-        # ---------- 系统登录（重试机制） ----------
-        print("🔑 处理系统登录...")
-        login_success = False
-        for attempt in range(3):
-            try:
-                page.wait_for_selector("input", timeout=15000)
-                inputs = page.locator("input").all()
-                visible_inputs = [i for i in inputs if i.is_visible()]
-                print(f"   第 {attempt+1} 次尝试，找到 {len(visible_inputs)} 个输入框")
+                # 打印输入框信息
+                for idx, inp in enumerate(visible_inputs):
+                    try:
+                        placeholder = inp.get_attribute("placeholder") or ""
+                        print(f"      输入框{idx}: placeholder='{placeholder}'")
+                    except:
+                        pass
                 
                 if len(visible_inputs) >= 3:
+                    # 顺序：账号 → 密码 → 店铺号
                     visible_inputs[0].click()
+                    visible_inputs[0].fill("")
                     visible_inputs[0].fill(SYS_USER)
                     print(f"   ✅ 填了账号: {SYS_USER}")
+                    
                     visible_inputs[1].click()
+                    visible_inputs[1].fill("")
                     visible_inputs[1].fill(SYS_PWD)
                     print(f"   ✅ 填了密码: {SYS_PWD}")
+                    
                     visible_inputs[2].click()
+                    visible_inputs[2].fill("")
                     visible_inputs[2].fill(STORE_NAME)
                     print(f"   ✅ 填了店铺号: {STORE_NAME}")
                 elif len(visible_inputs) >= 2:
@@ -121,17 +197,18 @@ def run_crawler():
                     print("   ✅ 用文本点击了'立即登录'")
                 
                 print("⏳ 等待登录完成...")
-                page.wait_for_timeout(10000)
+                page.wait_for_timeout(12000)
                 
-                # 验证是否登录成功
+                # 验证
                 current_url = page.url
                 page_text = page.evaluate("() => document.body.innerText")
+                
                 if "没有账号" in page_text and "立即登录" in page_text:
                     print(f"   ⚠️ 第 {attempt+1} 次登录失败，仍在登录页")
                     page.wait_for_timeout(2000)
                     continue
                 else:
-                    print(f"✅ 登录成功，当前URL: {current_url}")
+                    print(f"✅ 登录成功！当前URL: {current_url}")
                     login_success = True
                     break
                     
@@ -140,7 +217,7 @@ def run_crawler():
                 page.wait_for_timeout(2000)
         
         if not login_success:
-            print("❌ 系统登录失败，退出")
+            print("❌ 系统登录失败")
             browser.close()
             error_data = {"error": "login_failed", "timestamp": time.time()}
             with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -165,6 +242,7 @@ def run_crawler():
         # ---------- 采集分销中心汇总数据 ----------
         print("📊 提取分销中心汇总数据...")
         summary_text = page.evaluate("() => document.body.innerText")
+        print(f"📝 分销中心文本预览: {summary_text[:200]}...")
         
         summary = {}
         match = re.search(r'可提现佣金[（(]元[）)]?\s*([\d.]+)', summary_text)
@@ -192,7 +270,7 @@ def run_crawler():
             page.goto(f"{BASE_URL}/#/pages/customer/yejitongji", wait_until="networkidle")
             page.wait_for_timeout(3000)
         
-        # 滚动加载所有订单
+        # 滚动加载
         print("🔄 滚动加载订单...")
         last_height = 0
         same_count = 0
@@ -303,6 +381,7 @@ def run_crawler():
         
         print(f"💾 数据已保存到 {DATA_FILE}")
         print(f"📊 总订单数: {len(result['orders'])}")
+        print(f"📊 汇总: {result['summary']}")
         browser.close()
 
 if __name__ == "__main__":
